@@ -1,177 +1,358 @@
+// components/ui/AIAssistant.js
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Bot, User, Send, X, Minimize2, Maximize2, Loader2, MessageSquare } from 'lucide-react';
+import supabase from '@/lib/supabaseClient';
 
 export default function AIAssistant() {
     const [isOpen, setIsOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'assistant', content: '你好！我是你的AI学习助手，有任何问题都可以问我。' }
+        { role: 'assistant', content: '你好！我是你的AI学习助手，有任何问题都可以问我。我可以帮助你解答学习问题、推荐学习路径或生成练习题。' }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedModel, setSelectedModel] = useState('assessment');
+    const [user, setUser] = useState(null);
+    const [error, setError] = useState(null);
     const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
+    const [isTyping, setIsTyping] = useState(false);
 
-    // 模拟AI响应
-    const simulateAIResponse = async (query) => {
-        setIsLoading(true);
+    // 可用模型列表
+    const models = [
+        { id: 'assessment', name: '成绩评估', description: '分析学习数据，提供评估和建议', icon: '📊' },
+        { id: 'learningPath', name: '学习路径', description: '创建个性化学习计划', icon: '🛤️' },
+        { id: 'questionGenerator', name: '试题生成', description: '生成符合你水平的练习题', icon: '📝' }
+    ];
 
-        // 根据问题分类给出不同回答
-        const lowerQuery = query.toLowerCase();
-        let response = '';
-
-        // 等待1-2秒，模拟AI思考
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-
-        if (lowerQuery.includes('学习路径') || lowerQuery.includes('怎么学')) {
-            response = '根据你的学习情况，我建议你先掌握基础概念，然后进行习题练习，最后做一些综合性的题目来巩固知识点。你可以按照课程章节顺序学习，每完成一个章节后做对应的练习题。';
+    // 获取用户信息
+    useEffect(() => {
+        async function getUser() {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user || null);
         }
-        else if (lowerQuery.includes('题') || lowerQuery.includes('问题') || lowerQuery.includes('做不出')) {
-            response = '遇到难题是很正常的！建议你先回顾相关知识点，理解基本概念和解题方法。如果还有困难，可以查看课程中的例题解析，或者在论坛上向其他同学请教。我也可以帮你分析具体的题目，你可以把题目发给我。';
-        }
-        else if (lowerQuery.includes('考试') || lowerQuery.includes('复习')) {
-            response = '备考建议：1. 制定详细的复习计划，合理分配时间；2. 掌握重点知识点和解题技巧；3. 做真题和模拟题，熟悉考试形式；4. 保持良好的作息，保证充足的休息。如果你想针对具体科目复习，可以告诉我具体是哪个科目。';
-        }
-        else if (lowerQuery.includes('数学')) {
-            response = '数学学习需要打好基础，掌握核心概念和公式。建议你：1. 理解概念而不只是记忆公式；2. 多做习题，培养解题思路；3. 复习时注重知识点之间的联系；4. 有针对性地练习自己薄弱的部分。如果有具体的数学问题，可以详细告诉我。';
-        }
-        else if (lowerQuery.includes('物理')) {
-            response = '学习物理的关键是理解物理概念和原理，而不仅仅是套用公式。建议：1. 认真理解基本概念和定律；2. 学会分析物理过程；3. 多做实验和思考实验原理；4. 结合实际生活中的例子加深理解。有具体的物理问题请随时向我提问。';
-        }
-        else if (lowerQuery.includes('化学')) {
-            response = '化学学习需要记忆与理解相结合。我的建议：1. 牢记元素周期表和基本化学反应；2. 理解化学反应的原理和条件；3. 注重实验操作和观察；4. 多练习化学方程式的配平和计算题。如有具体问题，请详细描述。';
-        }
-        else if (lowerQuery.includes('你好') || lowerQuery.includes('hi') || lowerQuery.includes('hello')) {
-            response = '你好！我是你的AI学习助手。我可以帮你解答学习上的问题，提供学习建议，或者陪你讨论学术话题。有什么我可以帮助你的吗？';
-        }
-        else {
-            response = '你的问题很有价值！我建议你可以：1. 查看课程相关章节获取更多信息；2. 在实践中应用所学知识；3. 与其他同学交流讨论，加深理解。如果你有更具体的问题，请告诉我，我会尽力帮助你。';
-        }
-
-        setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-        setIsLoading(false);
-    };
-
-    // 处理发送消息
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!inputValue.trim()) return;
-
-        // 添加用户消息
-        setMessages(prev => [...prev, { role: 'user', content: inputValue }]);
-        const userMessage = inputValue;
-        setInputValue('');
-
-        // 获取AI响应
-        await simulateAIResponse(userMessage);
-    };
+        getUser();
+    }, []);
 
     // 自动滚动到最新消息
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // 当聊天窗口打开时，聚焦输入框
+    useEffect(() => {
+        if (isOpen && !isMinimized) {
+            inputRef.current?.focus();
+        }
+    }, [isOpen, isMinimized]);
+
+    // 打字动画效果
+    useEffect(() => {
+        if (isTyping) {
+            const timeout = setTimeout(() => {
+                setIsTyping(false);
+            }, 1000 + Math.random() * 2000);
+            
+            return () => clearTimeout(timeout);
+        }
+    }, [isTyping]);
+
+    // 处理聊天输入提交
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!inputValue.trim() || isLoading) return;
+        
+        // 添加用户消息到聊天窗口
+        const userMessage = inputValue.trim();
+        const userMessageId = `user-${Date.now()}`;
+        setMessages(prev => [...prev, { id: userMessageId, role: 'user', content: userMessage }]);
+        setInputValue('');
+        setIsLoading(true);
+        setError(null);
+        setIsTyping(true);
+        
+        try {
+            // 调用后端API获取AI响应
+            const response = await fetch('/api/ai-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: userMessage,
+                    modelType: selectedModel,
+                    userId: user ? user.id : null
+                }),
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '获取AI响应失败');
+            }
+            
+            const data = await response.json();
+            
+            // 添加AI响应到聊天窗口
+            const botMessageId = `assistant-${Date.now()}`;
+            setMessages(prev => [...prev, { 
+                id: botMessageId,
+                role: 'assistant', 
+                content: data.response
+            }]);
+        } catch (err) {
+            console.error('AI助手请求错误:', err);
+            setError(err.message || '与AI助手通信时出错');
+            const errorMessageId = `error-${Date.now()}`;
+            setMessages(prev => [...prev, { 
+                id: errorMessageId,
+                role: 'assistant', 
+                isError: true, 
+                content: `抱歉，发生了一个错误: ${err.message}` 
+            }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 处理输入框变化
+    const handleInputChange = (e) => {
+        setInputValue(e.target.value);
+    };
+
+    // 处理聊天窗口打开/关闭
+    const toggleChat = () => {
+        setIsOpen(prev => !prev);
+        setIsMinimized(false);
+    };
+
+    // 处理聊天窗口最小化/最大化
+    const toggleMinimize = () => {
+        setIsMinimized(prev => !prev);
+    };
+
+    // 清空聊天记录
+    const handleClearChat = () => {
+        setMessages([
+            { role: 'assistant', content: '聊天记录已清空。我是你的AI学习助手，有任何问题都可以问我。' }
+        ]);
+    };
+
     return (
         <>
-            {/* 浮动按钮 */}
-            <motion.button
-                onClick={() => setIsOpen(!isOpen)}
-                className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg flex items-center justify-center hover:bg-primary-700 transition-all z-50"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+            {/* 悬浮按钮 */}
+            <button
+                onClick={toggleChat}
+                className="fixed bottom-6 right-6 bg-primary-600 text-white p-4 rounded-full shadow-lg hover:bg-primary-700 transition-all duration-300 transform hover:scale-110 focus:outline-none z-50 flex items-center justify-center"
+                aria-label="打开AI助手"
             >
                 {isOpen ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X size={24} />
                 ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
+                    <div className="relative">
+                        <Bot size={24} />
+                        <span className="absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full animate-pulse"></span>
+                    </div>
                 )}
-            </motion.button>
+            </button>
 
-            {/* 聊天框 */}
+            {/* 聊天窗口 */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={
+                            isMinimized
+                                ? { opacity: 1, y: 0, scale: 0.95, height: 'auto', width: '300px' }
+                                : { opacity: 1, y: 0, scale: 1, height: 'auto', width: 'auto' }
+                        }
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed bottom-24 right-6 w-80 sm:w-96 bg-white rounded-lg shadow-xl z-50"
+                        className={`fixed ${
+                            isMinimized ? 'bottom-20 right-6 shadow-md' : 'bottom-6 right-6 sm:bottom-6 sm:right-6 sm:max-w-md max-w-[calc(100%-2rem)]'
+                        } bg-white/90 backdrop-blur-md rounded-xl overflow-hidden shadow-2xl z-40 border border-gray-200 flex flex-col`}
+                        style={{ maxHeight: isMinimized ? '60px' : 'calc(80vh - 2rem)' }}
                     >
-                        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-primary-600 text-white rounded-t-lg">
-                            <div className="flex items-center">
-                                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
+                        {isMinimized ? (
+                            // 最小化状态
+                            <div className="flex items-center justify-between p-3 bg-primary-50 cursor-pointer" onClick={toggleMinimize}>
+                                <div className="flex items-center">
+                                    <Bot size={20} className="text-primary-600 mr-2" />
+                                    <span className="text-sm font-medium text-gray-800">AI学习助手</span>
                                 </div>
-                                <h3 className="font-medium">AI学习助手</h3>
+                                <Maximize2 size={18} className="text-gray-500 hover:text-primary-600" />
                             </div>
-                            <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="p-4 h-80 overflow-y-auto bg-gray-50">
-                            {messages.map((message, index) => (
-                                <motion.div
-                                    key={index}
-                                    className={`mb-4 ${message.role === 'user' ? 'text-right' : ''}`}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    <div
-                                        className={`inline-block max-w-[80%] rounded-lg px-4 py-2 ${
-                                            message.role === 'user'
-                                                ? 'bg-primary-100 text-primary-800'
-                                                : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
-                                        }`}
-                                    >
-                                        {message.content}
+                        ) : (
+                            // 完整状态
+                            <>
+                                {/* 聊天窗口标题栏 */}
+                                <div className="bg-primary-50 p-3 border-b border-gray-200 flex justify-between items-center">
+                                    <div className="flex items-center">
+                                        <Bot size={20} className="text-primary-600 mr-2" />
+                                        <span className="font-medium text-gray-800">AI学习助手</span>
                                     </div>
-                                </motion.div>
-                            ))}
-                            {isLoading && (
-                                <div className="mb-4">
-                                    <div className="inline-block rounded-lg px-4 py-2 bg-white border border-gray-200 text-gray-800 shadow-sm">
-                                        <div className="flex space-x-1">
-                                            <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                            <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                            <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={toggleMinimize}
+                                            className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                            aria-label="最小化"
+                                        >
+                                            <Minimize2 size={18} className="text-gray-500" />
+                                        </button>
+                                        <button
+                                            onClick={toggleChat}
+                                            className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                            aria-label="关闭"
+                                        >
+                                            <X size={18} className="text-gray-500" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 模型选择器 */}
+                                <div className="border-b border-gray-200 p-2 bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex overflow-x-auto space-x-1 pb-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                                            {models.map((model) => (
+                                                <button
+                                                    key={model.id}
+                                                    onClick={() => setSelectedModel(model.id)}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300 ${
+                                                        selectedModel === model.id
+                                                            ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-400'
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    }`}
+                                                    title={model.description}
+                                                >
+                                                    <span className="mr-1">{model.icon}</span>
+                                                    {model.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            onClick={handleClearChat}
+                                            className="px-2 py-1 text-xs rounded-full whitespace-nowrap bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                        >
+                                            清空聊天
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 聊天消息区域 */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                                    {messages.map((msg, index) => (
+                                        <div
+                                            key={index}
+                                            className={`flex ${
+                                                msg.role === 'user' ? 'justify-end' : 'justify-start'
+                                            }`}
+                                        >
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.3 }}
+                                                className={`max-w-[85%] rounded-lg px-4 py-2 shadow-sm ${
+                                                    msg.role === 'user'
+                                                        ? 'bg-primary-600 text-white'
+                                                        : msg.role === 'system'
+                                                        ? 'bg-gray-200 text-gray-800'
+                                                        : msg.isError
+                                                        ? 'bg-red-50 text-red-800 border border-red-200'
+                                                        : 'bg-white text-gray-800 border border-gray-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-start">
+                                                    {msg.role !== 'user' && (
+                                                        <Bot size={16} className="mr-2 mt-1 flex-shrink-0 text-primary-500" />
+                                                    )}
+                                                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                                        {msg.content}
+                                                    </div>
+                                                    {msg.role === 'user' && (
+                                                        <User size={16} className="ml-2 mt-1 flex-shrink-0 text-white/70" />
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* 正在输入指示器 */}
+                                    {isTyping && (
+                                        <div className="flex justify-start">
+                                            <motion.div 
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                className="bg-white border border-gray-100 rounded-lg px-4 py-2 shadow-sm"
+                                            >
+                                                <div className="flex space-x-1">
+                                                    <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                                    <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                                    <div className="w-2 h-2 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* 加载指示器 */}
+                                    {isLoading && !isTyping && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-white border border-gray-100 rounded-lg px-4 py-2 shadow-sm">
+                                                <Loader2 className="animate-spin h-5 w-5 text-primary-500" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* 锚点元素，用于自动滚动 */}
+                                    <div ref={messagesEndRef} />
+                                </div>
+
+                                {/* 错误提示 */}
+                                {error && (
+                                    <div className="px-4 py-2 bg-red-50 text-red-700 text-sm border-t border-red-100">
+                                        <div className="flex items-center">
+                                            <span className="mr-2">⚠️</span>
+                                            {error}
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
+                                )}
 
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
-                            <div className="flex">
-                                <input
-                                    type="text"
-                                    value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
-                                    placeholder="发送消息..."
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                                    disabled={isLoading}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={isLoading || !inputValue.trim()}
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-r-md hover:bg-primary-700 disabled:bg-primary-300 transition duration-200"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </form>
+                                {/* 输入框 */}
+                                <form onSubmit={handleSubmit} className="border-t border-gray-200 p-2 bg-white">
+                                    <div className="flex">
+                                        <input
+                                            type="text"
+                                            ref={inputRef}
+                                            value={inputValue}
+                                            onChange={handleInputChange}
+                                            placeholder={`向${models.find(m => m.id === selectedModel)?.name}提问...`}
+                                            className="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                            disabled={isLoading}
+                                        />
+                                        <button
+                                            type="submit"
+                                            className={`bg-primary-600 text-white rounded-r-lg px-4 flex items-center justify-center transition-all duration-300 ${
+                                                isLoading || !inputValue.trim() 
+                                                    ? 'opacity-50 cursor-not-allowed' 
+                                                    : 'hover:bg-primary-700 active:bg-primary-800'
+                                            }`}
+                                            disabled={isLoading || !inputValue.trim()}
+                                        >
+                                            {isLoading ? (
+                                                <Loader2 className="animate-spin h-5 w-5" />
+                                            ) : (
+                                                <Send size={18} className="transform transition-transform group-hover:translate-x-1" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1 px-1">
+                                        按 Enter 发送，Shift + Enter 换行
+                                    </p>
+                                </form>
+                            </>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>

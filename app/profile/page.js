@@ -3,12 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY
-);
+import supabase from '@/lib/supabaseClient';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -38,25 +33,132 @@ export default function ProfilePage() {
         async function getProfile() {
             setLoading(true);
 
-            // Get user session
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push('/login?redirect=/profile');
-                return;
-            }
-            setUser(session.user);
+            try {
+                // Get user session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-            // Fetch user profile
+                if (sessionError) {
+                    throw sessionError;
+                }
+
+                if (!session) {
+                    router.push('/login?redirect=/profile');
+                    return;
+                }
+
+                setUser(session.user);
+
+                // Fetch user profile
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 means not found
+                    console.error('Error fetching profile:', error);
+                    setMessage({ type: 'error', text: '获取个人资料失败: ' + error.message });
+                } else if (data) {
+                    // If profile exists, populate the form
+                    setProfile({
+                        full_name: data.full_name || '',
+                        avatar_url: data.avatar_url || '',
+                        school: data.school || '',
+                        grade: data.grade || '',
+                        bio: data.bio || '',
+                        preferred_subjects: data.preferred_subjects || [],
+                        learning_goal: data.learning_goal || '',
+                        email_notifications: data.email_notifications !== false,
+                        study_reminder: data.study_reminder !== false
+                    });
+                }
+            } catch (e) {
+                console.error('获取用户会话或资料时出错:', e);
+                setMessage({ type: 'error', text: '加载个人资料时出错' });
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        getProfile();
+    }, [router]);
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        setMessage({ type: '', text: '' });
+
+        try {
+            if (!user) {
+                throw new Error('用户未登录');
+            }
+
+            // 先检查资料是否存在
+            const { data: existingProfile, error: checkError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', user.id)
+                .single();
+
+            if (checkError && checkError.code !== 'PGRST116') {
+                console.error('检查资料时出错:', checkError);
+                throw checkError;
+            }
+
+            let updateError;
+
+            if (!existingProfile) {
+                // 如果资料不存在，使用 INSERT
+                console.log('创建新资料...');
+                const { error } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: user.id,
+                        full_name: profile.full_name,
+                        avatar_url: profile.avatar_url,
+                        school: profile.school,
+                        grade: profile.grade,
+                        bio: profile.bio,
+                        preferred_subjects: profile.preferred_subjects,
+                        learning_goal: profile.learning_goal,
+                        email_notifications: profile.email_notifications,
+                        study_reminder: profile.study_reminder,
+                        updated_at: new Date().toISOString()
+                    });
+                updateError = error;
+            } else {
+                // 如果资料存在，使用 UPDATE
+                console.log('更新现有资料...');
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                        full_name: profile.full_name,
+                        avatar_url: profile.avatar_url,
+                        school: profile.school,
+                        grade: profile.grade,
+                        bio: profile.bio,
+                        preferred_subjects: profile.preferred_subjects,
+                        learning_goal: profile.learning_goal,
+                        email_notifications: profile.email_notifications,
+                        study_reminder: profile.study_reminder,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', user.id);
+                updateError = error;
+            }
+
+            if (updateError) throw updateError;
+
+            setMessage({ type: 'success', text: '个人资料已成功更新！' });
+
+            // 刷新资料数据
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', session.user.id)
+                .eq('id', user.id)
                 .single();
 
-            if (error) {
-                console.error('Error fetching profile:', error);
-            } else if (data) {
-                // If profile exists, populate the form
+            if (!error && data) {
                 setProfile({
                     full_name: data.full_name || '',
                     avatar_url: data.avatar_url || '',
@@ -70,41 +172,12 @@ export default function ProfilePage() {
                 });
             }
 
-            setLoading(false);
-        }
-
-        getProfile();
-    }, [router]);
-
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        setMessage({ type: '', text: '' });
-
-        try {
-            // Update profile
-            const { error } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: user.id,
-                    full_name: profile.full_name,
-                    avatar_url: profile.avatar_url,
-                    school: profile.school,
-                    grade: profile.grade,
-                    bio: profile.bio,
-                    preferred_subjects: profile.preferred_subjects,
-                    learning_goal: profile.learning_goal,
-                    email_notifications: profile.email_notifications,
-                    study_reminder: profile.study_reminder,
-                    updated_at: new Date().toISOString()
-                });
-
-            if (error) throw error;
-
-            setMessage({ type: 'success', text: '个人资料已成功更新！' });
         } catch (error) {
             console.error('Error updating profile:', error);
-            setMessage({ type: 'error', text: '更新个人资料时出错: ' + error.message });
+            setMessage({
+                type: 'error',
+                text: '更新个人资料时出错: ' + (error.message || JSON.stringify(error))
+            });
         } finally {
             setSaving(false);
         }
@@ -369,6 +442,7 @@ export default function ProfilePage() {
                                 <div className="flex justify-end pt-6 border-t border-gray-200">
                                     <button
                                         type="button"
+                                        onClick={() => router.back()}
                                         className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 mr-3"
                                     >
                                         取消
