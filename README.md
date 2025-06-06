@@ -1,304 +1,315 @@
-# EduPlatform - AI驱动的智能教育平台
+# EduPlatform - 智能教育学习平台
 
-EduPlatform是一个结合AI技术的现代教育平台，旨在为学生提供个性化学习体验。平台通过AI模型提供智能题目生成、学习路径规划和成绩评估功能，帮助学生更高效地学习。
+一个基于 Next.js 14 的现代化在线教育平台，集成了AI辅助学习、智能出题评估、学习路径规划等功能。
 
-## 功能亮点
+## 🌟 主要特性
 
-- 🧠 **AI学习助手**: 实时解答学习问题，提供学习建议
-- 📊 **个性化学习分析**: 基于学习数据生成详细的成绩报告和改进建议
-- 🗺️ **智能学习路径**: 根据学习目标和当前水平生成个性化学习计划
-- 📝 **智能试题生成**: 自动生成符合学生能力水平的练习题
-- 📚 **丰富的课程资源**: 多学科、多层次的系统化学习内容
-- 📱 **响应式设计**: 适配各种设备，随时随地学习
+### 核心功能
+- **📝 智能出题+评估** - AI自动生成题目并智能评估学习效果  
+- **📚 精品课程库** - 汇聚B站、慕课等优质平台的真实课程
+- **🎯 智能学习路径** - AI个性化定制学习计划和进度跟踪
+- **📊 智能内容生成** - 基于学习者特征的个性化学习内容生成系统
+- **📊 学习统计面板** - 详细的学习数据分析和可视化
+- **🤖 AI学习助手** - 智能问答、学习指导、个性化建议（游客可用）
 
-## 技术栈
+### 最新更新 (2024-03-15)
 
-### 前端
+#### 🎨 全新UI/UX设计
+- **现代化配色方案**: 将刺眼的橙色调整为柔和的蓝紫渐变色系
+- **一致性设计语言**: 统一了所有页面的背景色和视觉风格
+- **响应式布局**: 完美适配桌面端、平板和移动设备
+- **微交互动画**: 使用Framer Motion增强用户体验
 
+#### 📊 智能内容生成系统重构
+- **全新UI设计**: 现代化的蓝紫渐变设计，提升视觉体验
+- **个性化生成**: 基于学习者认知水平、学习风格等特征智能生成内容
+- **多维度调控**: 支持复杂度、密度、互动性等多参数调节
+- **实时预览**: 生成过程可视化，提供清晰的状态反馈
+- **智能适配**: 根据知识点类型和学习目标精准匹配内容结构
+
+#### 🔄 导航系统优化
+- **功能重组**: 将AI助手调整为学习内容生成入口，突出核心功能
+- **访问权限**: AI助手支持游客模式，无需登录即可体验基础功能
+- **优先级调整**: 根据用户使用频率优化功能入口排序
+
+#### 📚 真实课程数据集成
+- **B站优质课程**: 
+  - Python零基础教程 (黑马程序员)
+  - JavaScript高级编程 (技术胖)
+  - 机器学习基础 (李宏毅教授)
+  - React+TypeScript实战 (尚硅谷)
+  - 深度学习PyTorch (小土堆)
+
+- **中国大学MOOC课程**:
+  - 数据结构与算法 (清华大学 邓俊辉)
+  - 微积分 (北京大学 张筑生)
+  - 大学物理 (北京大学 钟锡华)
+
+- **课程数据完整性**:
+  - ✅ 真实的课程链接和平台标识
+  - ✅ 详细的讲师和大学信息
+  - ✅ 准确的学习人数和评分数据
+  - ✅ 完整的课程大纲和时长信息
+
+#### 🔗 外部平台集成
+- **直接跳转学习**: 点击课程直接跳转到B站/慕课原页面
+- **平台标识**: 清晰显示课程来源平台（B站/中国大学MOOC）
+- **价格信息**: 准确标识免费和付费课程
+- **讲师认证**: 显示大学/机构认证信息
+
+#### 🎯 智能学习路径系统
+- **目标导向规划**: 基于学习目标智能制定路径
+- **多领域覆盖**: 编程、AI、数学、物理等6大领域
+- **进度追踪**: 实时监控学习进展和完成度
+- **个性化推荐**: 根据水平和时间投入智能推荐
+
+#### 🎨 配色系统优化
+- **主色调**: 深蓝渐变 (#1e40af → #7c3aed)
+- **辅助色**: 
+  - 成功色: 绿色系 (#10b981)
+  - 警告色: 黄色系 (#f59e0b) 
+  - 错误色: 红色系 (#ef4444)
+- **背景层次**:
+  - 一级背景: 白色 (#ffffff)
+  - 二级背景: 浅灰 (#f9fafb)
+  - 三级背景: 深色渐变用于对比度
+
+### 技术架构
+
+#### 前端技术栈
 - **框架**: Next.js 14 (App Router)
-- **样式**: Tailwind CSS + Framer Motion
+- **样式**: Tailwind CSS + 自定义组件
+- **动画**: Framer Motion
+- **图标**: Lucide React
 - **状态管理**: React Hooks
-- **数据可视化**: Recharts
-- **动画效果**: Framer Motion
+- **类型检查**: JavaScript + JSDoc
 
-### 后端
+#### 数据库设计
+- **用户系统**: 用户信息、学习进度、偏好设置
+- **课程系统**: 课程信息、章节内容、学习路径
+- **AI系统**: 题目库、评估结果、智能推荐
 
-- **数据库**: Supabase (PostgreSQL)
-- **认证**: Supabase Auth
-- **存储**: Supabase Storage
-- **API**: Next.js API Routes
-- **AI集成**: FastGPT API
+#### API集成
+- **FastGPT**: AI对话和智能问答
+- **外部课程API**: B站、慕课网课程数据同步
+- **内容生成**: AI辅助内容创作
 
-## 安装与运行
+## 🚀 快速开始
 
 ### 环境要求
-
 - Node.js 18+
-- npm 9+
-- Supabase账户
+- npm 或 yarn
+- 现代浏览器 (Chrome 90+, Firefox 88+, Safari 14+)
 
 ### 安装步骤
 
-1. 克隆仓库
-
-```
-bashCopygit clone https://github.com/your-username/edu-platform.git
+1. **克隆项目**
+```bash
+git clone https://github.com/your-username/edu-platform.git
 cd edu-platform
 ```
 
-1. 安装依赖
-
-```
-bash
-
-Copy
-
+2. **安装依赖**
+```bash
 npm install
+# 或
+yarn install
 ```
 
-1. 环境变量配置
-
-创建`.env.local`文件并添加以下内容:
-
-```
-CopyNEXT_PUBLIC_SUPABASE_URL=你的Supabase项目URL
-NEXT_PUBLIC_SUPABASE_KEY=你的Supabase匿名密钥
+3. **环境配置**
+```bash
+cp .env.local.example .env.local
 ```
 
-1. 数据库设置
+配置环境变量：
+```bash
+# FastGPT API配置
+FASTGPT_API_KEY=your_fastgpt_api_key
+FASTGPT_BASE_URL=your_fastgpt_base_url
 
-在Supabase控制台中运行项目根目录下的`schema.sql`文件，创建必要的表和权限。
+# 数据库配置 (如果使用)
+DATABASE_URL=your_database_url
 
-1. 启动开发服务器
-
+# 其他配置
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
-bash
 
-Copy
-
+4. **启动开发服务器**
+```bash
 npm run dev
+# 或  
+yarn dev
 ```
 
-访问 http://localhost:3000 查看应用。
+5. **访问应用**
+打开浏览器访问 [http://localhost:3000](http://localhost:3000)
 
-## 项目结构
+## 📱 页面导航
 
+### 主要页面
+- **首页** (`/`) - 平台介绍、功能展示、课程推荐
+- **课程中心** (`/courses`) - 完整课程库，支持搜索和筛选
+- **课程详情** (`/courses/[id]`) - 课程详细信息、章节、评价
+- **智能出题** (`/quiz-generator`) - AI题目生成和评估
+- **学习路径** (`/learning-path`) - 个性化学习规划
+- **学习内容生成** (`/content-generator`) - 基于学习者特征的智能内容生成
+- **AI助手** (`/ai-assistant`) - 智能问答和学习指导（支持游客模式）
+- **学习统计** (`/dashboard`) - 个人学习数据面板
+
+### 功能特色
+
+#### 📊 智能内容生成系统
+- **学习者建模**: 基于认知水平、先验知识、学习风格等多维度特征
+- **知识点分析**: 智能识别概念类型、复杂度、先决条件
+- **个性化生成**: 根据学习者特征定制最适合的内容结构和表达方式
+- **多样化调节**: 支持语言复杂度、内容密度、实例比例等细粒度调控
+- **实时反馈**: 生成过程可视化，提供清晰的状态和进度反馈
+
+#### 📝 智能出题+评估系统
+- **多种题型**: 选择题、填空题、简答题、编程题
+- **难度分级**: 基础、中级、高级三个等级
+- **智能评估**: AI自动评分和详细反馈
+- **错题分析**: 错误原因分析和改进建议
+- **学习报告**: 综合学习表现评估
+
+#### 🎯 智能学习路径
+- **目标设定**: 明确学习目标和期望成果
+- **能力评估**: 当前水平测试和技能分析
+- **路径规划**: 个性化学习步骤和时间安排
+- **进度跟踪**: 实时学习进度监控
+- **动态调整**: 根据学习表现优化路径
+
+#### 🤖 AI学习助手（支持游客模式）
+- **智能问答**: 支持学科相关问题解答
+- **学习指导**: 个性化学习建议和方法指导
+- **概念解释**: 复杂概念的简化解释
+- **答疑解惑**: 24/7在线智能答疑
+- **游客访问**: 无需登录即可体验基础AI助手功能
+
+#### 📚 精品课程库
+- **多平台整合**: B站、中国大学MOOC等优质资源
+- **智能筛选**: 按学科、难度、价格、评分筛选
+- **详细信息**: 课程大纲、讲师介绍、学习人数
+- **直达学习**: 一键跳转到原平台学习
+
+## 🛠️ 开发指南
+
+### 项目结构
 ```
-Copyedu-platform/
-├── app/                  # Next.js 应用路由
-│   ├── api/              # API 路由
-│   │   ├── ai-assistant/ # AI助手API
-│   │   ├── assessment/   # 评估API
-│   │   ├── learning-path/# 学习路径API
-│   │   └── questions/    # 试题API
-│   ├── dashboard/        # 仪表板页面
-│   ├── courses/          # 课程页面
-│   ├── practice/         # 练习页面
-│   ├── analytics/        # 分析页面
-│   ├── profile/          # 用户资料页面
-│   └── ...
-├── components/           # React组件
+edu-platform/
+├── app/                    # Next.js 14 App Router
+│   ├── page.js            # 首页
+│   ├── courses/           # 课程相关页面
+│   ├── ai-assistant/      # AI助手页面
+│   ├── quiz-generator/    # 智能出题页面
+│   ├── learning-path/     # 学习路径页面
+│   ├── content-generator/ # 学习内容生成页面
+│   └── api/              # API路由
+├── components/            # React组件
 │   ├── layout/           # 布局组件
-│   │   └── MainLayout.js # 主布局
 │   └── ui/               # UI组件
-│       ├── AIAssistant.js# AI助手组件
-│       └── ...
-├── lib/                  # 工具函数和API客户端 
-│   ├── fastgptClient.js  # FastGPT API客户端
-│   ├── supabaseClient.js # Supabase客户端
-│   └── ...
+├── lib/                  # 工具函数
 ├── public/               # 静态资源
-└── ...
+└── styles/               # 样式文件
 ```
 
-## 数据库模型
+### 主要组件
 
-EduPlatform使用Supabase作为后端数据库，主要包含以下表结构：
+#### 布局组件
+- `MainLayout`: 主要页面布局，包含导航和页脚
+- `Header`: 响应式导航栏，支持用户状态管理
+- `Footer`: 页脚组件，包含链接和联系信息
 
-- **courses**: 课程信息表
-- **course_chapters**: 课程章节表
-- **profiles**: 用户资料表
-- **user_progress**: 用户学习进度表
-- **quiz_attempts**: 用户测验记录表
-- **assessment_results**: 成绩评估结果表
-- **learning_paths**: 学习路径表
-- **ai_chat_history**: AI聊天历史记录表
+#### UI组件
+- `CourseCard`: 课程卡片，支持多种显示模式
+- `FeatureCard`: 功能特色展示卡片
+- `SubjectIcon`: 学科图标组件
+- `AnimatedBackground`: 动态背景效果
 
-详细的表结构和字段信息请参考`schema.sql`文件。
+### 样式系统
 
-## AI模型集成
-
-本项目集成了三个FastGPT模型，通过API进行调用：
-
-1. **成绩评估模型** (Assessment)
-   - 分析学生的学习数据，生成详细的评估报告
-   - 提供优势和弱点分析，给出改进建议
-   - 模型ID: `jo87glkagm0bjuu3a8a9fscf`
-   - 访问链接: [成绩评估模型](https://cloud.fastgpt.cn/chat/share?shareId=jo87glkagm0bjuu3a8a9fscf)
-
-2. **学习路径模型** (Learning Path)
-   - 根据学生目标和当前水平，生成个性化学习计划
-   - 提供时间规划和学习资源推荐
-   - 模型ID: `w6v4iudnki84eer4e2dmwo37`
-   - 访问链接: [学习路径推荐模型](https://cloud.fastgpt.cn/chat/share?shareId=w6v4iudnki84eer4e2dmwo37)
-
-3. **试题生成模型** (Question Generator)
-   - 生成符合学生水平的个性化练习题
-   - 提供详细的解析和知识点说明
-   - 模型ID: `jidvsej3g5cofla8xsm891kd`
-   - 访问链接: [试题生成模型](https://cloud.fastgpt.cn/chat/share?shareId=jidvsej3g5cofla8xsm891kd)
-
-### 模型调用流程
-
-AI模型通过`lib/fastgptClient.js`中封装的API客户端进行调用：
-
-1. 用户在AI助手界面输入问题
-2. 系统根据选择的模型类型收集相关用户数据(如测验记录、学习进度)
-3. 将用户问题和相关数据发送到FastGPT API
-4. 获取AI响应并展示给用户
-5. 对于已登录用户，系统会保存聊天历史记录
-
-### AI助手使用说明
-
-1. 点击界面右下角的AI助手按钮打开聊天窗口
-2. 在顶部选择需要使用的模式(成绩评估/学习路径/试题生成)
-3. 输入问题或需求，按发送按钮或回车键提交
-4. 等待AI响应(通常在几秒内完成)
-5. 可以继续提问或切换模式进行不同类型的交互
-
-### 开发者说明
-
-如需修改或扩展AI模型功能，可以通过以下步骤：
-
-1. 在FastGPT平台上微调现有模型或创建新模型
-2. 更新`lib/fastgptClient.js`中的模型ID
-3. 根据需要调整`app/api/ai-assistant/route.js`中的数据收集逻辑
-4. 在组件`components/ui/AIAssistant.js`中更新用户界面
-
-## 功能说明
-
-### AI学习助手
-
-AI学习助手支持三种模式：
-
-1. **成绩评估模式**: 分析学习数据，提供评估和建议
-2. **学习路径模式**: 创建个性化学习计划
-3. **试题生成模式**: 生成适合用户水平的练习题
-
-用户可以在聊天界面中切换模式，与AI助手进行自然语言交流。
-
-### 课程学习
-
-课程学习流程：
-
-1. 在课程列表中选择课程
-2. 进入课程详情页，查看课程章节
-3. 按顺序学习章节内容
-4. 完成章节后进行测验
-5. 系统记录学习进度和成绩
-
-### 学习分析
-
-学习分析功能包括：
-
-- 学习时长统计
-- 测验成绩趋势
-- 知识点掌握程度
-- 学科强弱分析
-- 学习习惯评估
-
-### 智能练习
-
-智能练习系统会根据用户的学习情况和水平，生成适合的练习题，并提供即时反馈和详细解析。
-
-## 部署说明
-
-### Vercel部署(推荐)
-
-1. Fork本仓库到你的GitHub账户
-2. 在Vercel中导入该仓库
-3. 配置环境变量：
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_KEY`
-4. 点击部署
-
-### Docker部署
-
-1. 构建Docker镜像
-
-```
-bash
-
-Copy
-
-docker build -t edu-platform .
+#### Tailwind配置
+```javascript
+// tailwind.config.js
+module.exports = {
+  content: ['./app/**/*.{js,ts,jsx,tsx}', './components/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          500: '#3b82f6',
+          700: '#1d4ed8',
+        }
+      }
+    }
+  }
+}
 ```
 
-1. 运行容器
+#### 响应式断点
+- `sm`: 640px+
+- `md`: 768px+ 
+- `lg`: 1024px+
+- `xl`: 1280px+
+- `2xl`: 1536px+
 
+## 🔧 自定义配置
+
+### 主题颜色调整
+在 `/app/page.js` 中可以调整各专区的背景色：
+
+```javascript
+// 学科覆盖专区
+<section className="py-16 bg-gradient-to-br from-blue-100 via-indigo-50 to-purple-100">
+
+// 核心功能专区  
+<section className="py-16 bg-gradient-to-br from-purple-100 via-pink-50 to-rose-100">
+
+// 课程展示专区
+<section className="py-16 bg-gradient-to-br from-indigo-100 via-blue-50 to-cyan-100">
+
+// 信任展示专区
+<section className="py-16 bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900">
 ```
-bash
 
-Copy
+### 颜色深度调整参数
+- `from-[color]-50`: 最浅
+- `from-[color]-100`: 浅色
+- `from-[color]-200`: 中浅色  
+- `via-[color]-50/60/70`: 中间色透明度
+- `bg-white/60`: 白色背景60%透明度
 
-docker run -p 3000:3000 -e NEXT_PUBLIC_SUPABASE_URL=xxx -e NEXT_PUBLIC_SUPABASE_KEY=xxx edu-platform
-```
+## 🤝 贡献指南
 
-## 贡献指南
+### 提交规范
+- `feat`: 新功能
+- `fix`: 问题修复
+- `docs`: 文档更新
+- `style`: 样式调整
+- `refactor`: 代码重构
+- `test`: 测试相关
+- `chore`: 构建/工具相关
 
-欢迎贡献代码或提出建议。请遵循以下步骤：
+### 开发流程
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
+4. 推送分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
 
-1. Fork仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建Pull Request
+## 📞 技术支持
 
-## 许可证
+如有问题或建议，请通过以下方式联系：
 
-本项目采用 [MIT 许可证](LICENSE)。
+- **Issues**: [GitHub Issues](https://github.com/your-username/edu-platform/issues)
+- **文档**: [在线文档](https://edu-platform-docs.vercel.app)
+- **邮箱**: support@eduplatform.com
 
-## 联系方式
+## 📄 许可证
 
-如有任何问题或建议，请通过以下方式联系我们：
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-- 项目GitHub: https://github.com/your-username/edu-platform
-- 电子邮件: [your-email@example.com](mailto:your-email@example.com)
+---
 
-## 更新日志
-
-### 2024-03-21 更新
-
-#### 修复了以下问题：
-
-1. **AI助手现在真正调用FastGPT API**
-   - 修复了之前AI助手只使用模拟响应的问题
-   - 现在AI助手可以正确调用三个不同的FastGPT模型：
-     - 成绩评估模型 (jo87glkagm0bjuu3a8a9fscf)
-     - 学习路径推荐模型 (w6v4iudnki84eer4e2dmwo37)
-     - 试题生成模型 (jidvsej3g5cofla8xsm891kd)
-
-2. **优化了主页UI设计**
-   - 改进了HeroSection部分：
-     - 添加了动态波浪效果
-     - 增加了浮动动画元素
-     - 优化了按钮交互效果
-     - 添加了标签展示核心功能
-   - 优化了课程卡片设计：
-     - 改进了卡片悬停效果
-     - 优化了卡片布局和视觉层次
-     - 增加了过渡动画
-   - 整体提升了视觉一致性和现代感
-
-#### 如何验证更新：
-
-1. 访问主页，体验新的UI设计和动画效果
-2. 打开AI助手，选择不同模型进行测试，确认是否能获取真实API响应
-
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```
+**EduPlatform** - 让学习更智能，让教育更个性化 🚀

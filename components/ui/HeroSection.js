@@ -90,6 +90,15 @@ export default function HeroSection() {
                                 </svg>
                             </Link>
                             <Link 
+                                href="/quiz-generator" 
+                                className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 px-8 py-3 rounded-lg font-bold text-lg flex items-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 duration-300"
+                            >
+                                <span className="relative z-10">🧠 智能出题</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </Link>
+                            <Link 
                                 href="/ai-assistant" 
                                 className="group relative px-8 py-3 rounded-lg font-bold text-lg flex items-center border border-white/40 transition-all overflow-hidden shadow-lg bg-blue-700/60 backdrop-blur-sm hover:bg-blue-600/70"
                             >
@@ -103,7 +112,7 @@ export default function HeroSection() {
                         
                         {/* 特性标签 */}
                         <div className="flex flex-wrap gap-3 mt-10">
-                            {["智能评估", "个性化学习路径", "智能题目生成"].map((feature, index) => (
+                            {["🎯 智能评估", "🛤️ 个性化学习路径", "📝 智能题目生成", "🤖 AI学习助手"].map((feature, index) => (
                                 <motion.span 
                                     key={feature}
                                     className="bg-blue-800/60 backdrop-blur-md text-white text-sm px-5 py-2 rounded-full shadow-lg relative overflow-hidden group border border-blue-500/50 font-medium"

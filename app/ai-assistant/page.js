@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
 import supabase from '@/lib/supabaseClient';
-import { Bot, RefreshCcw, Send, Loader, User } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Bot, Send, Loader, User, MessageCircle, Sparkles, BookOpen, Brain, Target, Copy, Trash2, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // 生成唯一ID用于消息
 function generateUniqueId() {
@@ -20,85 +20,165 @@ export default function AIAssistantPage() {
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef(null);
+    const [isGuest, setIsGuest] = useState(false);
 
     // 当前选择的模型
     const [selectedModel, setSelectedModel] = useState('assessment');
 
     // 可用模型列表
     const models = [
-        { id: 'assessment', name: '成绩评估', description: '分析学习数据，提供评估和建议', icon: <Bot size={24} className="mr-2" /> },
-        { id: 'learningPath', name: '学习路径', description: '创建个性化学习计划', icon: <Bot size={24} className="mr-2" /> },
-        { id: 'questionGenerator', name: '试题生成', description: '生成符合你水平的练习题', icon: <Bot size={24} className="mr-2" /> }
+        { 
+            id: 'assessment', 
+            name: '📊 成绩评估', 
+            description: '分析学习数据，提供详细的学习评估和改进建议', 
+            color: 'from-blue-500 to-indigo-600',
+            example: '帮我分析一下我的数学学习情况'
+        },
+        { 
+            id: 'learningPath', 
+            name: '🗺️ 学习路径', 
+            description: '根据你的目标和水平，制定个性化学习计划', 
+            color: 'from-green-500 to-emerald-600',
+            example: '我想提升英语水平，请为我制定学习计划'
+        },
+        { 
+            id: 'questionGenerator', 
+            name: '📝 试题生成', 
+            description: '生成符合你当前水平的个性化练习题', 
+            color: 'from-purple-500 to-violet-600',
+            example: '请为我生成一些高中物理力学题目'
+        }
+    ];
+
+    // 平台功能介绍
+    const platformFeatures = [
+        {
+            icon: <Brain className="w-5 h-5" />,
+            title: "智能试题生成",
+            desc: "AI自动生成个性化试题，支持在线答题和智能批改",
+            link: "/quiz-generator"
+        },
+        {
+            icon: <BookOpen className="w-5 h-5" />,
+            title: "学习内容生成",
+            desc: "根据学习者特征生成个性化学习内容和指南",
+            link: "/content-generator"
+        },
+        {
+            icon: <Target className="w-5 h-5" />,
+            title: "课程中心",
+            desc: "丰富的课程资源，系统化学习路径",
+            link: "/courses"
+        }
     ];
 
     useEffect(() => {
         async function checkAuth() {
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) throw error;
-
-                if (!session) {
-                    router.push('/login?redirect=/ai-assistant');
-                    return;
+                
+                if (session) {
+                    setUser(session.user);
+                    setIsGuest(false);
+                } else {
+                    // 设置为游客模式，无需强制登录
+                    setIsGuest(true);
                 }
 
-                setUser(session.user);
+                // 添加欢迎消息（根据登录状态定制）
+                const welcomeMessage = session ? 
+                    `🎉 欢迎回来，${session.user.email}！我是您的专属学习伙伴。
 
-                // 添加系统欢迎消息
+🚀 **我们的平台功能**：
+• 📊 **智能试题生成**：根据年级、学科、难度生成个性化试题，支持AI批改和学习者评估
+• 📚 **学习内容生成**：基于学习者特征生成定制化学习内容和指南  
+• 🎓 **课程中心**：丰富的系统化课程资源，覆盖多个学科领域
+• 🤖 **AI学习助手**：实时解答问题，提供学习建议和路径规划
+
+💡 **如何使用**：
+1. 选择上方的功能模式（成绩评估/学习路径/试题生成）
+2. 描述您的学习需求或问题
+3. 我会根据您选择的模式提供专业建议
+
+🎯 **使用示例**：
+• "帮我分析一下我的数学学习情况"
+• "我想提升英语水平，请制定学习计划"  
+• "生成一些高中物理力学练习题"
+
+现在就告诉我，您想要什么帮助吧！✨` :
+                    `🎉 欢迎使用AI学习助手！我是您的智能学习伙伴。
+
+🚀 **我们的平台功能**：
+• 📊 **智能试题生成**：根据年级、学科、难度生成个性化试题，支持AI批改和学习者评估
+• 📚 **学习内容生成**：基于学习者特征生成定制化学习内容和指南  
+• 🎓 **课程中心**：丰富的系统化课程资源，覆盖多个学科领域
+• 🤖 **AI学习助手**：实时解答问题，提供学习建议和路径规划
+
+💡 **游客模式**：您现在以游客身份使用AI助手，可以正常对话和获取帮助。
+📝 **想要更多功能？**[登录账户](/login)可以保存聊天记录和个性化设置。
+
+🎯 **使用示例**：
+• "帮我分析一下我的数学学习情况"
+• "我想提升英语水平，请制定学习计划"  
+• "生成一些高中物理力学练习题"
+
+现在就告诉我，您想要什么帮助吧！✨`;
+
                 setMessages([
                     {
                         id: `system-welcome-${generateUniqueId()}`,
-                        role: 'system',
-                        content: '👋 你好！我是你的 AI 学习助手。我可以帮助你评估学习情况、推荐学习路径，或生成练习题。请选择你需要的功能并告诉我你的问题。',
+                        role: 'assistant',
+                        content: welcomeMessage,
                         timestamp: new Date()
                     }
                 ]);
 
-                // 检查表是否存在
-                try {
-                    const { count, error } = await supabase
-                        .from('ai_chat_history')
-                        .select('*', { count: 'exact', head: true });
+                // 只有在用户登录时才加载历史记录
+                if (session) {
+                    try {
+                        const { count, error } = await supabase
+                            .from('ai_chat_history')
+                            .select('*', { count: 'exact', head: true });
 
-                    if (error && error.code === '42P01') { // 表不存在
-                        console.log('AI 聊天历史表不存在，正在创建...');
+                        if (error && error.code === '42P01') {
+                            console.log('AI 聊天历史表不存在，正在创建...');
+                            await createChatHistoryTable();
+                        }
+                    } catch (e) {
+                        console.log('检查表时出错，尝试创建表', e);
                         await createChatHistoryTable();
                     }
-                } catch (e) {
-                    console.log('检查表时出错，尝试创建表', e);
-                    await createChatHistoryTable();
-                }
 
-                // 从数据库加载历史记录
-                try {
-                    const { data: chatHistory, error: historyError } = await supabase
-                        .from('ai_chat_history')
-                        .select('id, role, content, model, created_at')
-                        .eq('user_id', session.user.id)
-                        .order('created_at', { ascending: true })
-                        .limit(50);
+                    try {
+                        const { data: chatHistory, error: historyError } = await supabase
+                            .from('ai_chat_history')
+                            .select('id, role, content, model, created_at')
+                            .eq('user_id', session.user.id)
+                            .order('created_at', { ascending: true })
+                            .limit(50);
 
-                    if (!historyError && chatHistory && chatHistory.length > 0) {
-                        // 确保历史记录和欢迎消息不重复
-                        const historyMessages = chatHistory.map(msg => ({
-                            id: `db-${msg.id}`,  // 添加前缀以区分数据库记录
-                            role: msg.role,
-                            content: msg.content,
-                            modelType: msg.model,
-                            timestamp: new Date(msg.created_at)
-                        }));
-                        
-                        // 只保留一条欢迎消息
-                        setMessages(prev => {
-                            const welcomeMessage = prev.find(m => m.role === 'system');
-                            return [...(welcomeMessage ? [welcomeMessage] : []), ...historyMessages];
-                        });
+                        if (!historyError && chatHistory && chatHistory.length > 0) {
+                            const historyMessages = chatHistory.map(msg => ({
+                                id: `db-${msg.id}`,
+                                role: msg.role,
+                                content: msg.content,
+                                modelType: msg.model,
+                                timestamp: new Date(msg.created_at)
+                            }));
+                            
+                            setMessages(prev => {
+                                const welcomeMessage = prev.find(m => m.role === 'assistant');
+                                return [...(welcomeMessage ? [welcomeMessage] : []), ...historyMessages];
+                            });
+                        }
+                    } catch (dbError) {
+                        console.error('从数据库加载聊天历史出错:', dbError);
                     }
-                } catch (dbError) {
-                    console.error('从数据库加载聊天历史出错:', dbError);
                 }
             } catch (error) {
                 console.error('检查认证状态出错:', error);
+                // 即使认证失败，也允许以游客身份使用
+                setIsGuest(true);
             } finally {
                 setLoading(false);
             }
@@ -109,11 +189,9 @@ export default function AIAssistantPage() {
 
     async function createChatHistoryTable() {
         try {
-            // 创建 AI 聊天历史表
             await supabase.rpc('create_chat_history_table');
         } catch (e) {
             console.error('创建表失败', e);
-            // 备选方案：直接在浏览器端模拟表的功能
             console.log('使用内存中的聊天历史');
         }
     }
@@ -123,26 +201,13 @@ export default function AIAssistantPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // 确保消息有唯一的ID
-    useEffect(() => {
-        // 检查消息是否有重复ID，如果有，重新生成新的ID
-        const messageIds = new Set();
-        const uniqueMessages = messages.map(msg => {
-            // 如果ID已经存在或未定义，生成新ID
-            if (!msg.id || messageIds.has(msg.id)) {
-                const newId = `${msg.role}-${generateUniqueId()}`;
-                return { ...msg, id: newId };
-            }
-            
-            messageIds.add(msg.id);
-            return msg;
-        });
-        
-        // 如果有消息ID被更新，更新消息列表
-        if (uniqueMessages.some((msg, idx) => msg.id !== messages[idx]?.id)) {
-            setMessages(uniqueMessages);
-        }
-    }, [messages]);
+    // 快速提问模板
+    const quickQuestions = [
+        "帮我制定数学学习计划",
+        "生成英语词汇练习题",
+        "分析我的学习进度",
+        "推荐适合的课程"
+    ];
 
     const handleSend = async () => {
         if (!input.trim() || sending) return;
@@ -150,7 +215,6 @@ export default function AIAssistantPage() {
         try {
             setSending(true);
 
-            // 添加用户消息到聊天
             const userMessageId = `user-${generateUniqueId()}`;
             const userMessage = {
                 id: userMessageId,
@@ -159,35 +223,37 @@ export default function AIAssistantPage() {
                 timestamp: new Date()
             };
 
-            setMessages(prev => [...prev, userMessage]);
+            const currentInput = input;
             setInput('');
+            setMessages(prev => [...prev, userMessage]);
 
-            try {
-                // 保存到数据库
-                await supabase
-                    .from('ai_chat_history')
-                    .insert({
-                        user_id: user.id,
-                        role: 'user',
-                        model: selectedModel,
-                        content: input,
-                        created_at: new Date().toISOString()
-                    });
-            } catch (e) {
-                console.log('保存消息到数据库失败，仅在前端显示', e);
+            // 只有登录用户才保存用户消息到数据库
+            if (user && !isGuest) {
+                try {
+                    await supabase
+                        .from('ai_chat_history')
+                        .insert({
+                            user_id: user.id,
+                            role: 'user',
+                            model: selectedModel,
+                            content: currentInput,
+                            created_at: new Date().toISOString()
+                        });
+                } catch (e) {
+                    console.log('保存用户消息到数据库失败', e);
+                }
             }
 
-            // 添加思考消息
+            // 添加"正在思考"消息
             const thinkingId = `thinking-${generateUniqueId()}`;
             setMessages(prev => [...prev, {
                 id: thinkingId,
                 role: 'assistant',
-                content: '思考中...',
+                content: '🤔 正在思考中...',
                 isThinking: true,
                 timestamp: new Date()
             }]);
 
-            // 调用实际的FastGPT API
             try {
                 const response = await fetch('/api/ai-assistant', {
                     method: 'POST',
@@ -195,73 +261,66 @@ export default function AIAssistantPage() {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        message: input,
+                        message: currentInput,
                         modelType: selectedModel,
-                        userId: user.id
+                        userId: user?.id || 'guest', // 游客模式传递 'guest'
+                        isGuest: isGuest
                     }),
                 });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || '获取AI响应失败');
-                }
-                
-                const data = await response.json();
-                
-                // 移除思考消息，添加API返回的回复
-                const assistantMessageId = `assistant-${generateUniqueId()}`;
-                setMessages(prev =>
-                    prev.filter(msg => msg.id !== thinkingId).concat({
-                        id: assistantMessageId,
-                        role: 'assistant',
-                        content: data.response,
-                        timestamp: new Date()
-                    })
-                );
 
-                // 保存AI回复到数据库
-                try {
-                    await supabase
-                        .from('ai_chat_history')
-                        .insert({
-                            user_id: user.id,
-                            role: 'assistant',
-                            model: selectedModel,
-                            content: data.response,
-                            created_at: new Date().toISOString()
-                        });
-                } catch (e) {
-                    console.log('保存AI回复到数据库失败', e);
+                if (!response.ok) {
+                    throw new Error(`API请求失败: ${response.status}`);
                 }
+
+                const data = await response.json();
+
+                // 移除思考消息，添加AI回复
+                setMessages(prev => {
+                    const filteredMessages = prev.filter(m => m.id !== thinkingId);
+                    return [...filteredMessages, {
+                        id: `assistant-${generateUniqueId()}`,
+                        role: 'assistant',
+                        content: data.response || '抱歉，我暂时无法回答这个问题。',
+                        modelType: selectedModel,
+                        timestamp: new Date()
+                    }];
+                });
+
+                // 只有登录用户才保存AI回复到数据库
+                if (user && !isGuest) {
+                    try {
+                        await supabase
+                            .from('ai_chat_history')
+                            .insert({
+                                user_id: user.id,
+                                role: 'assistant',
+                                model: selectedModel,
+                                content: data.response || '抱歉，我暂时无法回答这个问题。',
+                                created_at: new Date().toISOString()
+                            });
+                    } catch (e) {
+                        console.log('保存AI回复到数据库失败', e);
+                    }
+                }
+
             } catch (error) {
-                console.error('调用AI API时出错:', error);
-                // 显示错误消息
-                setMessages(prev =>
-                    prev.filter(msg => msg.id !== thinkingId).concat({
+                console.error('发送消息时出错:', error);
+                
+                setMessages(prev => {
+                    const filteredMessages = prev.filter(m => m.id !== thinkingId);
+                    return [...filteredMessages, {
                         id: `error-${generateUniqueId()}`,
-                        role: 'system',
-                        content: `调用AI助手时出错: ${error.message}`,
+                        role: 'assistant',
+                        content: '抱歉，我现在遇到了一些技术问题。请稍后再试，或者尝试使用我们的其他功能：\n\n• 🧠 [智能试题生成](/quiz-generator)\n• 📚 [学习内容生成](/content-generator)\n• 🎓 [课程中心](/courses)',
                         isError: true,
                         timestamp: new Date()
-                    })
-                );
+                    }];
+                });
             }
 
-            setSending(false);
-
         } catch (error) {
-            console.error('发送消息时出错:', error);
-
-            // 显示错误消息
-            setMessages(prev =>
-                prev.filter(msg => !msg.isThinking).concat({
-                    id: `error-${generateUniqueId()}`,
-                    role: 'system',
-                    content: '发送消息时出错，请稍后重试。',
-                    isError: true,
-                    timestamp: new Date()
-                })
-            );
+            console.error('处理消息时出错:', error);
+        } finally {
             setSending(false);
         }
     };
@@ -274,43 +333,48 @@ export default function AIAssistantPage() {
     };
 
     const handleClearChat = async () => {
-        if (confirm('确定要清空聊天记录吗？这将删除所有历史消息。')) {
-            try {
-                // 从数据库删除历史记录
-                if (user) {
-                    try {
-                        await supabase
-                            .from('ai_chat_history')
-                            .delete()
-                            .eq('user_id', user.id);
-                    } catch (e) {
-                        console.log('从数据库删除历史记录失败', e);
-                    }
-                }
+        if (window.confirm('确定要清空聊天记录吗？')) {
+            const welcomeMessage = isGuest ? 
+                `🎉 欢迎使用AI学习助手！我是您的智能学习伙伴。
 
-                // 只保留系统欢迎消息
-                setMessages([
-                    {
-                        id: `system-welcome-${generateUniqueId()}`,
-                        role: 'system',
-                        content: '👋 你好！我是你的 AI 学习助手。我可以帮助你评估学习情况、推荐学习路径，或生成练习题。请选择你需要的功能并告诉我你的问题。',
-                        timestamp: new Date()
-                    }
-                ]);
-            } catch (error) {
-                console.error('清空聊天记录时出错:', error);
+💡 **游客模式**：您现在以游客身份使用AI助手，可以正常对话和获取帮助。
+📝 **想要更多功能？**[登录账户](/login)可以保存聊天记录和个性化设置。
+
+现在就告诉我，您想要什么帮助吧！✨` :
+                `🎉 欢迎回来，${user?.email}！我是您的专属学习伙伴。
+
+现在就告诉我，您想要什么帮助吧！✨`;
+
+            setMessages([{
+                id: `system-welcome-${generateUniqueId()}`,
+                role: 'assistant',
+                content: welcomeMessage,
+                timestamp: new Date()
+            }]);
+            
+            // 只有登录用户才清空数据库记录
+            if (user && !isGuest) {
+                try {
+                    await supabase
+                        .from('ai_chat_history')
+                        .delete()
+                        .eq('user_id', user.id);
+                } catch (e) {
+                    console.log('清空数据库聊天记录失败', e);
+                }
             }
         }
+    };
+
+    const copyMessage = (content) => {
+        navigator.clipboard.writeText(content);
     };
 
     if (loading) {
         return (
             <MainLayout>
-                <div className="flex justify-center items-center h-64">
-                    <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-                        <p className="mt-4 text-gray-600">加载中...</p>
-                    </div>
+                <div className="min-h-screen flex items-center justify-center">
+                    <Loader className="animate-spin h-8 w-8 text-blue-500" />
                 </div>
             </MainLayout>
         );
@@ -318,129 +382,246 @@ export default function AIAssistantPage() {
 
     return (
         <MainLayout>
-            <div className="max-w-5xl mx-auto px-4 py-8">
-                <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
-                    {/* 头部 */}
-                    <div className="bg-gradient-to-r from-primary-500 to-primary-700 text-white p-4 flex justify-between items-center">
-                        <div className="flex items-center">
-                            <Bot size={24} className="mr-2" />
-                            <h1 className="text-xl font-bold">AI 学习助手</h1>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <button
-                                onClick={handleClearChat}
-                                className="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30 transition-colors flex items-center"
-                            >
-                                <RefreshCcw size={14} className="mr-1" />
-                                清空聊天记录
-                            </button>
-                        </div>
-                    </div>
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+                <div className="max-w-6xl mx-auto p-4">
+                    {/* 页面标题 */}
+                    <motion.div 
+                        className="text-center mb-8 pt-8"
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                            🤖 AI 学习助手
+                        </h1>
+                        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                            您的智能学习伙伴，提供个性化学习建议、路径规划和学习评估
+                        </p>
+                    </motion.div>
 
                     {/* 模型选择器 */}
-                    <div className="bg-gray-50 border-b border-gray-200 p-3 grid grid-cols-3 gap-2 text-sm">
-                        {models.map(model => (
-                            <button
-                                key={model.id}
-                                onClick={() => setSelectedModel(model.id)}
-                                className={`rounded-lg p-2 transition-all duration-300 flex flex-col items-center justify-center ${
-                                    selectedModel === model.id
-                                    ? 'bg-primary-100 border-primary-300 border text-primary-800 shadow-sm'
-                                    : 'hover:bg-gray-100 border border-gray-200 hover:border-gray-300 text-gray-700'
-                                }`}
-                            >
-                                <span className="text-lg mb-1">{model.icon}</span>
-                                <span className="font-medium">{model.name}</span>
-                                <span className="text-xs text-gray-500 mt-1">{model.description}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* 聊天内容区域 */}
-                    <div className="h-[500px] overflow-y-auto p-4 space-y-4 scrollbar-thin bg-gray-50">
-                        {messages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                <Bot size={48} className="mb-2 text-gray-300" />
-                                <p>还没有任何消息，开始提问吧！</p>
-                            </div>
-                        ) : (
-                            messages.map(message => (
-                                <div
-                                    key={message.id}
-                                    className={`flex ${
-                                        message.role === 'user' ? 'justify-end' : 'justify-start'
+                    <motion.div 
+                        className="mb-6"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                    >
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">选择AI助手模式</h3>
+                        <div className="grid md:grid-cols-3 gap-4">
+                            {models.map((model) => (
+                                <motion.button
+                                    key={model.id}
+                                    onClick={() => setSelectedModel(model.id)}
+                                    className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
+                                        selectedModel === model.id
+                                            ? 'border-blue-500 bg-blue-50 shadow-lg'
+                                            : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'
                                     }`}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                 >
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                                            message.role === 'user'
-                                                ? 'bg-primary-500 text-white rounded-tr-none'
-                                                : message.role === 'system'
-                                                ? message.isError
-                                                    ? 'bg-red-50 text-red-800 border border-red-200'
-                                                    : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
-                                                : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-none'
-                                        } ${
-                                            message.role !== 'user' ? 'glass-morphism' : ''
-                                        }`}
+                                    <div className={`text-lg font-semibold mb-2 ${
+                                        selectedModel === model.id ? 'text-blue-700' : 'text-gray-800'
+                                    }`}>
+                                        {model.name}
+                                    </div>
+                                    <div className="text-sm text-gray-600 mb-3">{model.description}</div>
+                                    <div className="text-xs text-gray-500 italic">
+                                        示例：{model.example}
+                                    </div>
+                                </motion.button>
+                            ))}
+                        </div>
+                    </motion.div>
+
+                    {/* 聊天区域 */}
+                    <motion.div 
+                        className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                    >
+                        {/* 聊天头部 */}
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center">
+                                    <MessageCircle className="w-6 h-6 mr-2" />
+                                    <span className="font-semibold">AI 学习助手</span>
+                                    <span className="ml-2 text-blue-100 text-sm">
+                                        当前模式: {models.find(m => m.id === selectedModel)?.name}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={handleClearChat}
+                                    className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                                    title="清空聊天记录"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                            
+                            {/* 用户状态提示 */}
+                            <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center">
+                                    {isGuest ? (
+                                        <>
+                                            <AlertCircle className="w-4 h-4 mr-2 text-yellow-300" />
+                                            <span className="text-blue-100">
+                                                游客模式 · 聊天记录不会保存
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <User className="w-4 h-4 mr-2 text-green-300" />
+                                            <span className="text-blue-100">
+                                                已登录: {user?.email} · 聊天记录已保存
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                                {isGuest && (
+                                    <a 
+                                        href="/login" 
+                                        className="text-blue-100 hover:text-white underline text-sm"
                                     >
-                                        {message.role === 'user' ? (
-                                            <div className="flex items-start">
-                                                <p className="whitespace-pre-wrap">{message.content}</p>
-                                                <User size={16} className="ml-2 mt-1 flex-shrink-0 opacity-70" />
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-start">
-                                                {message.role === 'system' ? null : (
-                                                    <Bot size={16} className="mr-2 mt-1 flex-shrink-0 text-primary-500" />
+                                        立即登录
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 消息列表 */}
+                        <div className="h-96 overflow-y-auto p-4 space-y-4">
+                            <AnimatePresence>
+                                {messages.map((message) => (
+                                    <motion.div
+                                        key={message.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        transition={{ duration: 0.3 }}
+                                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`max-w-[80%] ${
+                                            message.role === 'user' 
+                                                ? 'bg-blue-500 text-white rounded-2xl rounded-br-md' 
+                                                : 'bg-gray-100 text-gray-800 rounded-2xl rounded-bl-md'
+                                        } p-4 relative group`}>
+                                            {message.role === 'assistant' && (
+                                                <div className="flex items-center mb-2">
+                                                    <Bot className="w-4 h-4 mr-2 text-blue-500" />
+                                                    <span className="text-xs text-gray-500">AI助手</span>
+                                                    {message.isThinking && <Sparkles className="w-4 h-4 ml-2 animate-pulse text-blue-500" />}
+                                                </div>
+                                            )}
+                                            
+                                            <div className="whitespace-pre-wrap">
+                                                {message.isThinking ? (
+                                                    <div className="flex items-center">
+                                                        <Loader className="w-4 h-4 animate-spin mr-2" />
+                                                        {message.content}
+                                                    </div>
+                                                ) : (
+                                                    message.content
                                                 )}
-                                                <p className="whitespace-pre-wrap">{message.content}</p>
                                             </div>
-                                        )}
-                                        <div className="text-xs opacity-70 mt-1 text-right">
-                                            {message.timestamp.toLocaleTimeString()}
+                                            
+                                            {!message.isThinking && (
+                                                <button
+                                                    onClick={() => copyMessage(message.content)}
+                                                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded bg-black/10 hover:bg-black/20"
+                                                    title="复制消息"
+                                                >
+                                                    <Copy className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                            
+                                            <div className="text-xs opacity-70 mt-2">
+                                                {message.timestamp?.toLocaleTimeString()}
+                                            </div>
                                         </div>
                                     </motion.div>
-                                </div>
-                            ))
-                        )}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* 输入区域 */}
-                    <div className="border-t border-gray-200 p-3 bg-white">
-                        <div className="relative flex">
-                            <textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={`向${models.find(m => m.id === selectedModel)?.name}提问...`}
-                                className="w-full border border-gray-300 rounded-l-lg p-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 max-h-24 min-h-[60px]"
-                                disabled={sending}
-                            />
-                            <button
-                                onClick={handleSend}
-                                disabled={!input.trim() || sending}
-                                className={`bg-primary-600 rounded-r-lg px-4 flex items-center justify-center transition-all duration-300 ${
-                                    !input.trim() || sending
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'hover:bg-primary-700'
-                                }`}
-                            >
-                                {sending ? (
-                                    <Loader className="w-5 h-5 text-white animate-spin" />
-                                ) : (
-                                    <Send className="w-5 h-5 text-white" />
-                                )}
-                            </button>
+                                ))}
+                            </AnimatePresence>
+                            <div ref={messagesEndRef} />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 px-1">
-                            按 Enter 发送消息，Shift + Enter 换行
-                        </p>
-                    </div>
+
+                        {/* 快速提问 */}
+                        {messages.length <= 1 && (
+                            <div className="px-4 pb-4">
+                                <div className="text-sm text-gray-600 mb-2">💡 快速提问：</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {quickQuestions.map((question, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setInput(question)}
+                                            className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
+                                        >
+                                            {question}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 输入区域 */}
+                        <div className="border-t border-gray-100 p-4">
+                            <div className="flex space-x-3">
+                                <textarea
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={`向${models.find(m => m.id === selectedModel)?.name}提问...`}
+                                    className="flex-1 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    rows="2"
+                                    disabled={sending}
+                                />
+                                <button
+                                    onClick={handleSend}
+                                    disabled={!input.trim() || sending}
+                                    className="bg-blue-500 text-white p-3 rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                >
+                                    {sending ? (
+                                        <Loader className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <Send className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* 平台功能推荐 */}
+                    <motion.div 
+                        className="mt-8 mb-8"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
+                    >
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">
+                            🚀 探索更多平台功能
+                        </h3>
+                        <div className="grid md:grid-cols-3 gap-4">
+                            {platformFeatures.map((feature, index) => (
+                                <motion.a
+                                    key={index}
+                                    href={feature.link}
+                                    className="block p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 group"
+                                    whileHover={{ scale: 1.02, y: -2 }}
+                                >
+                                    <div className="flex items-center mb-2">
+                                        <div className="p-2 bg-blue-100 rounded-lg text-blue-600 group-hover:bg-blue-200 transition-colors">
+                                            {feature.icon}
+                                        </div>
+                                        <h4 className="ml-3 font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                                            {feature.title}
+                                        </h4>
+                                    </div>
+                                    <p className="text-gray-600 text-sm">{feature.desc}</p>
+                                </motion.a>
+                            ))}
+                        </div>
+                    </motion.div>
                 </div>
             </div>
         </MainLayout>
