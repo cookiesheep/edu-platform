@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.FASTGPT_API_KEY;
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || process.env.FASTGPT_API_URL || 'https://api.fastgpt.io/api/v1/chat/completions';
 const BACKUP_API_URL = 'https://globalai.vip/v1/messages'; // 尝试标准Claude API格式
-const API_TIMEOUT = 30000; // 设置30秒超时，避免504错误
+const API_TIMEOUT = 60000; // 增加到60秒超时，避免504错误
 
 // 强制使用真实API，禁用模拟数据
 const USE_MOCK_API = false;
@@ -48,40 +48,69 @@ export async function POST(request) {
       cognitive_level: requestData.cognitive_level
     });
     
-    // 构建完整的系统提示词，包含所有参数信息
-    const systemPrompt = buildSystemPrompt(requestData);
+    // 构建精简的系统提示词
+    const systemPrompt = buildOptimizedSystemPrompt(requestData);
     
-    // 使用简单的用户提示词，因为详细信息已经在系统提示词中
-    const userPrompt = `请根据我的认知水平(${requestData.cognitive_level})、学习风格(${requestData.learning_style})、先验知识(${requestData.prior_knowledge || '中等'})和学习动机(${requestData.motivation_type})，为我生成一份关于"${requestData.knowledge_point}"的个性化学习指南。${requestData.learning_style === '视觉型' ? '请务必包含至少2-3个符合规范的流程图、思维导图或示意图，用于可视化表达重要概念和关系。' : ''}`;
+    // 使用简化的用户提示词
+    const userPrompt = `请为${requestData.cognitive_level}水平学习者生成关于"${requestData.knowledge_point}"的学习指南。采用${requestData.learning_style}学习方式，目标是${requestData.learning_objective}。要求简洁实用。`;
     
-    // 尝试API调用
-    try {
-      console.log('🚀 正在调用AI API...');
-      const apiResponse = await callClaudeAPI(CLAUDE_API_URL, systemPrompt, userPrompt);
-      
-      console.log('✅ 内容生成成功');
-      
-      return NextResponse.json({ 
-        success: true,
-        content: apiResponse.trim()
-      });
-    } catch (apiError) {
-      console.error('❌ API调用失败:', apiError.message);
-      
-      // 不使用备用内容，直接返回错误
-      return NextResponse.json(
-        { 
-          error: `AI服务暂时不可用：${apiError.message}。请稍后再试。`,
-          details: 'API调用失败',
-          debug_info: {
-            api_url: CLAUDE_API_URL,
-            has_key: !!CLAUDE_API_KEY,
-            error_type: apiError.name
+    // 使用重试机制调用API
+    const maxRetries = 2;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🚀 开始第${attempt}次内容生成API调用...`);
+        const apiResponse = await callClaudeAPIWithRetry(CLAUDE_API_URL, systemPrompt, userPrompt, attempt);
+        
+        console.log(`✅ 内容生成成功（第${attempt}次尝试）`);
+        
+        return NextResponse.json({ 
+          success: true,
+          content: apiResponse.trim(),
+          metadata: {
+            attempt: attempt,
+            timestamp: new Date().toISOString()
           }
-        },
-        { status: 503 }
-      );
+        });
+      } catch (apiError) {
+        console.error(`❌ 第${attempt}次API调用失败:`, apiError.message);
+        lastError = apiError;
+        
+        if (apiError.name === 'AbortError' && attempt < maxRetries) {
+          console.log(`⏳ 超时重试，等待2秒...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        } else if (apiError.message.includes('fetch') && attempt < maxRetries) {
+          console.log(`⏳ 网络错误重试，等待3秒...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          continue;
+        } else if (apiError.message.includes('429') && attempt < maxRetries) {
+          console.log(`⏳ API限流重试，等待2秒...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        } else {
+          // 其他错误或最后一次重试，退出循环
+          break;
+        }
+      }
     }
+
+    // 所有重试都失败了
+    console.error('❌ 所有内容生成重试都失败了');
+    return NextResponse.json(
+      { 
+        error: `AI服务暂时不可用（已重试${maxRetries}次）：${lastError.message}。请稍后再试。`,
+        details: 'API调用失败',
+        debug_info: {
+          api_url: CLAUDE_API_URL,
+          has_key: !!CLAUDE_API_KEY,
+          error_type: lastError.name,
+          max_retries: maxRetries
+        }
+      },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('❌ 内容生成API错误:', error);
     return NextResponse.json(
@@ -98,136 +127,28 @@ export async function POST(request) {
 }
 
 /**
- * 构建系统提示词
+ * 构建优化的系统提示词 - 大幅简化以减少请求体大小
  */
-function buildSystemPrompt(data) {
-  return `您是"EduSage"，一个专业的自适应教育内容生成系统。您的任务是根据详细的学习者模型和知识点特征，生成精确校准的个性化教学内容。
+function buildOptimizedSystemPrompt(data) {
+  return `您是EduSage学习内容生成系统。
 
-重要说明：您收到的用户消息中已包含关键的学习者信息和知识点数据。您必须根据这些信息生成一份完整的、高度个性化的学习内容，而不是询问更多信息。
+学习者：${data.cognitive_level}水平，${data.learning_style}学习方式
+目标：${data.learning_objective}
 
-## 学习者模型说明
-- 认知维度: 这表示学习者的思维水平（初级/中级/高级）
-- 先验知识: 这表示学习者已有的相关知识基础（基础/中等/深入）
-- 学习风格: 这表示学习者偏好的学习方式（视觉型/文本型/应用型/社交型）
-- 学习动机: 这表示学习者的主要学习动力（任务导向/兴趣驱动/成就导向/应用导向）
+请生成关于"${data.knowledge_point}"的学习指南，包含：
 
-## 知识点特征说明
-- 知识点: 需要学习的具体概念或技能
-- 学科领域: 知识点所属的学科
-- 概念类型: 知识的性质（事实型/程序型/概念型/原理型）
-- 复杂度级别: 知识点的难度和复杂性（1-5级）
-- 学习目标: 期望达到的认知层次（记忆/理解/应用/分析/评估/创造）
+1. 📚 概念解析（简洁易懂）
+2. 🎯 学习目标（3-5个要点）
+3. 💡 核心内容（重点突出）
+4. 🔍 实例应用（2-3个案例）
+5. ✅ 自我检测（简单问题）
+6. 📖 资源推荐
 
-## 您的任务
-根据用户提供的这些信息，生成一份高度适配的学习内容。内容必须：
-1. 符合学习者的认知水平和先验知识
-2. 采用学习者偏好的学习风格
-3. 激发学习者的学习动机
-4. 呈现适合知识点复杂度的内容
-5. 帮助学习者达成学习目标
-
-## 图表与可视化注意事项
-当学习者是视觉型时，应当增加图表和视觉元素。如要插入流程图、思维导图等，请使用以下格式：
-
-\`\`\`
-graph TD
-A[开始] --> B[步骤1]
-B --> C[步骤2]
-C --> D[结束]
-\`\`\`
-
-或使用单反引号的简化格式:
-
-\`graph TD
-A[开始] --> B[步骤1]
-B --> C[步骤2]
-C --> D[结束]\`
-
-请注意：不要使用\`\`mermaid或类似标记，只需使用常规的代码块或行内代码标记。
-
-## 输出结构规范
-您必须严格按照以下结构生成内容：
-
-# {知识点} 个性化学习指南
-
-## 📚 学习路径导航
-> {根据学习者模型定制的简短介绍，强调该知识点对学习者的相关性和价值}
-
-### 🎯 本单元学习目标
-{列出3-5个基于学习目标的具体学习目标，根据认知水平调整}
-
----
-
-## 💡 核心概念解析
-{根据认知水平和先验知识调整的概念解释}
-
-### ⚙️ 概念架构
-{针对学习风格设计的概念组织方式}
-
-### 🔑 关键要素
-{3-5个根据复杂度级别调整的要点，每个配有针对学习风格的说明}
-
----
-
-## 🌉 认知支架
-{根据先验知识设计的支架内容}
-
-### 📝 概念连接图
-{将新知识点与已知概念的连接，采用适合的表征方式}
-
-### 🧩 分步理解指南
-{将复杂概念分解为更小、更易消化的部分}
-
----
-
-## 🔍 情境应用与示例
-{根据学习风格和动机类型选择的示例}
-
-### 💼 实际应用场景
-{2-4个与学习者相关的应用场景，复杂度随认知水平递增}
-
-### 🔄 概念应用过程
-{针对概念类型的应用流程或思维过程}
-
----
-
-## ⚡ 深度拓展
-{基于认知水平和动机类型的拓展内容}
-
-### 🤔 思维挑战
-{与知识点相关的开放性问题或情境，难度随认知水平调整}
-
-### 🔗 跨学科连接
-{将知识点与其他领域或更广泛背景的联系}
-
----
-
-## 📊 学习评估
-{根据认知水平和学习目标设计的评估活动}
-
-### ✅ 自我检测
-{3-5个自评问题，从简单到复杂}
-
-### �� 应用挑战
-{1-2个需要综合应用所学知识的任务或问题}
-
----
-
-## 📌 学习资源
-{根据学习风格和动机类型推荐的资源}
-
-### 📖 核心资源
-{2-3个与知识点直接相关的资源}
-
-### 🌱 延伸资源
-{2-3个可进一步探索的资源}
-
----
-
-## 🗺️ 后续学习路径
-{基于当前知识点的后续学习建议}
-
-请注意：您必须生成一份完整的内容，填充每个部分的具体内容，而不是简单重复模板。每个部分都应该有实质性内容，而不仅仅是说明或占位符。`;
+要求：
+- 适合${data.cognitive_level}水平
+- 采用${data.learning_style}表达方式
+- 简洁实用，重点突出
+- 避免冗长理论${data.learning_style === '视觉型' ? '\n- 可添加简单图表说明' : ''}`;
 }
 
 // 从API响应中提取文本内容，尝试多种可能的响应格式
@@ -296,11 +217,11 @@ function extractContentFromResponse(data) {
 }
 
 /**
- * 调用Claude API
+ * 调用Claude API（带重试机制）
  */
-async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
+async function callClaudeAPIWithRetry(apiUrl, systemPrompt, userPrompt, attempt) {
   try {
-    console.log(`调用Claude API (${apiUrl})...`);
+    console.log(`调用Claude API (${apiUrl}) - 第${attempt}次尝试...`);
     
     // 使用AbortController设置超时
     const controller = new AbortController();
@@ -309,8 +230,7 @@ async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
     // 使用简单稳定的模型
     const selectedModel = 'claude-3-5-sonnet-20241022';
     
-    // 打印系统提示词的一部分
-    console.log('系统提示词片段:', systemPrompt.substring(0, 200) + '...');
+    console.log('系统提示词长度:', systemPrompt.length);
     console.log('用户提示词:', userPrompt);
     
     // 准备请求体 - 使用标准的Claude API格式
@@ -327,24 +247,19 @@ async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 2000 // 减少token数量，提高响应速度
     };
     
     console.log(`使用模型: ${selectedModel}`);
+    console.log('请求体大小:', JSON.stringify(requestBody).length, 'bytes');
     
     // 添加必要的请求头
     const headers = {
       'Accept': 'application/json',
       'Authorization': `Bearer ${CLAUDE_API_KEY}`,
       'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'Host': 'globalai.vip',
-      'Connection': 'keep-alive'
+      'anthropic-version': '2023-06-01'
     };
-    
-    // 确认请求格式
-    console.log('请求体结构:', Object.keys(requestBody));
-    console.log('请求头:', Object.keys(headers));
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -365,14 +280,14 @@ async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
     }
     
     const responseText = await response.text();
-    console.log('原始响应文本:', responseText.substring(0, 200) + '...');
+    console.log('原始响应文本长度:', responseText.length);
     
     let data;
     try {
       data = JSON.parse(responseText);
     } catch (parseError) {
       console.error('JSON解析错误:', parseError);
-      console.error('收到的文本:', responseText);
+      console.error('收到的文本:', responseText.substring(0, 200) + '...');
       
       // 如果不是JSON格式，但是看起来像是文本内容，就直接返回
       if (responseText && responseText.length > 50 && !responseText.startsWith('<')) {
@@ -384,13 +299,12 @@ async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
     }
     
     console.log('Claude API响应结构:', Object.keys(data));
-    console.log('响应数据样本:', JSON.stringify(data).substring(0, 300) + '...');
     
     // 尝试从各种可能的响应格式中提取内容
     const textContent = extractContentFromResponse(data);
     
     if (!textContent) {
-      console.error('无法从响应中提取文本内容:', JSON.stringify(data));
+      console.error('无法从响应中提取文本内容:', JSON.stringify(data).substring(0, 300));
       throw new Error('无法从响应中提取文本内容');
     }
     
@@ -403,6 +317,13 @@ async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
     console.error('调用Claude API出错:', error);
     throw error;
   }
+}
+
+/**
+ * 调用Claude API（旧版本，保留作为备用）
+ */
+async function callClaudeAPI(apiUrl, systemPrompt, userPrompt) {
+  return callClaudeAPIWithRetry(apiUrl, systemPrompt, userPrompt, 1);
 }
 
 /**

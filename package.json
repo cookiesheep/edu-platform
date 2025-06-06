@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "chart.js": "^4.4.8",
     "class-variance-authority": "^0.7.1",
+    "dotenv": "^16.5.0",
     "framer-motion": "^12.5.0",
     "lucide-react": "^0.482.0",
     "mermaid": "^11.6.0",
