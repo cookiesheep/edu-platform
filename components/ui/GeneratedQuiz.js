@@ -51,6 +51,7 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
     
     let currentQuestion = null;
     let inAnswerSection = false;
+    let questionCounter = 0; // 添加计数器确保唯一ID
     
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
@@ -84,17 +85,19 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           questions.push(currentQuestion);
         }
         
+        questionCounter++;
         const questionNumber = parseInt(questionMatch[1]);
         const questionText = questionMatch[2].trim();
         
         currentQuestion = {
-          id: questionNumber,
+          id: `q_${questionCounter}_${questionNumber}`, // 使用复合ID确保唯一性
+          originalId: questionNumber,
           question: questionText,
           options: [],
           type: 'multiple_choice'
         };
         
-        console.log('新题目:', questionNumber, questionText);
+        console.log('新题目:', questionCounter, questionNumber, questionText);
       } 
       // 解析选择题选项 - 改进选项识别
       else if (currentQuestion && /^[ABCD][\.\s、]/.test(trimmedLine)) {
@@ -105,7 +108,8 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           
           currentQuestion.options.push({
             key: optionKey,
-            text: optionText
+            text: optionText,
+            id: `${currentQuestion.id}_option_${optionKey}` // 确保选项也有唯一ID
           });
           
           console.log('添加选项:', optionKey, optionText);
@@ -134,7 +138,7 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
     }
     
     // 处理没有明确ABCD选项的情况，尝试从题目中提取
-    questions.forEach(question => {
+    questions.forEach((question, qIndex) => {
       if (question.type === 'multiple_choice' && question.options.length === 0) {
         console.log('尝试从题目文本中提取选项:', question.question);
         
@@ -152,7 +156,11 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
             const key = match[0].charAt(0);
             const text = match[1].trim();
             if (text) {
-              extractedOptions.push({ key, text });
+              extractedOptions.push({ 
+                key, 
+                text,
+                id: `${question.id}_extracted_option_${key}` // 确保提取的选项也有唯一ID
+              });
             }
           }
           
@@ -175,7 +183,7 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
     
     console.log('解析完成，共', questions.length, '道题目');
     questions.forEach((q, i) => {
-      console.log(`题目${i+1}: ${q.type}, 选项数: ${q.options.length}`);
+      console.log(`题目${i+1}: ${q.type}, ID: ${q.id}, 选项数: ${q.options.length}`);
     });
     
     return { questions };
@@ -585,20 +593,20 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           <div className="mt-6 print:hidden">
             <h3 className="text-xl font-bold mb-4">📝 在线答题</h3>
             <div className="space-y-6">
-              {questions.map((question, index) => (
+              {questions.map((question, questionIndex) => (
                 <div 
-                  key={question.id} 
+                  key={question.id}
                   className="p-4 border rounded-lg bg-gray-50"
-                  onMouseEnter={() => recordQuestionStart(question.id)}
+                  onMouseEnter={() => recordQuestionStart(question.originalId || question.id)}
                 >
                   <div className="mb-3">
-                    <span className="text-sm text-gray-500">第{index + 1}题</span>
+                    <span className="text-sm text-gray-500">第{questionIndex + 1}题</span>
                     <p className="font-medium text-gray-900 mt-1">{question.question}</p>
-                    {answerTimingData[question.id] && (
+                    {answerTimingData[question.originalId || question.id] && (
                       <span className="text-xs text-gray-500 ml-2">
-                        答题时间: {Math.floor(answerTimingData[question.id] / 1000)}秒
-                        {answerModifications[question.id] > 1 && (
-                          <span className="ml-1">| 修改{answerModifications[question.id] - 1}次</span>
+                        答题时间: {Math.floor(answerTimingData[question.originalId || question.id] / 1000)}秒
+                        {answerModifications[question.originalId || question.id] > 1 && (
+                          <span className="ml-1">| 修改{answerModifications[question.originalId || question.id] - 1}次</span>
                         )}
                       </span>
                     )}
@@ -606,25 +614,25 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
                   
                   {question.type === 'multiple_choice' && question.options.length > 0 ? (
                     <div className="space-y-2">
-                      {question.options.map((option) => (
+                      {question.options.map((option, optionIndex) => (
                         <label
-                          key={option.key}
+                          key={`question-${question.id}-option-${option.key}-${optionIndex}`}
                           className={`flex items-center p-2 rounded cursor-pointer transition-colors ${
-                            answers[question.id] === option.key
+                            answers[question.originalId || question.id] === option.key
                               ? 'bg-blue-100 border border-blue-300'
                               : 'bg-white border border-gray-200 hover:bg-gray-50'
                           }`}
                         >
                           <input
                             type="radio"
-                            name={`question-${question.id}`}
+                            name={`quiz-question-${question.originalId || question.id}`}
                             value={option.key}
-                            checked={answers[question.id] === option.key}
-                            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                            className="mr-3"
+                            checked={answers[question.originalId || question.id] === option.key}
+                            onChange={(e) => handleAnswerChange(question.originalId || question.id, e.target.value)}
+                            className="mr-3 h-4 w-4 text-blue-600"
                             disabled={isSubmitting}
                           />
-                          <span>{option.key}. {option.text}</span>
+                          <span className="text-sm">{option.key}. {option.text}</span>
                         </label>
                       ))}
                     </div>
@@ -633,9 +641,9 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
                       <input
                         type="text"
                         placeholder="请输入答案..."
-                        value={answers[question.id] || ''}
-                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                        onFocus={() => recordQuestionStart(question.id)}
+                        value={answers[question.originalId || question.id] || ''}
+                        onChange={(e) => handleAnswerChange(question.originalId || question.id, e.target.value)}
+                        onFocus={() => recordQuestionStart(question.originalId || question.id)}
                         disabled={isSubmitting}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
