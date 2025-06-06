@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.FASTGPT_API_KEY;
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || process.env.FASTGPT_API_URL || 'https://api.fastgpt.io/api/v1/chat/completions';
 const BACKUP_API_URL = 'https://globalai.vip/v1/messages'; // 尝试标准Claude API格式
-const API_TIMEOUT = 120000; // 增加到120秒超时，适应Vercel部署环境
+const API_TIMEOUT = 45000; // 调整到45秒，适应Vercel 60秒限制，留出处理时间
 
 // 强制使用真实API，禁用模拟数据
 const USE_MOCK_API = false;

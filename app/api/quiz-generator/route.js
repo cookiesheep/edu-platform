@@ -1,7 +1,7 @@
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.FASTGPT_API_KEY;
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || process.env.FASTGPT_API_URL || 'https://api.fastgpt.io/api/v1/chat/completions';
-const API_TIMEOUT = 60000; // 增加到60秒超时，避免API响应慢导致的超时
+const API_TIMEOUT = 45000; // 调整到45秒，适应Vercel 60秒限制，留出处理时间
 
 export async function POST(req) {
   try {
