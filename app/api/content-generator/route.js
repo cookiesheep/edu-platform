@@ -14,11 +14,27 @@ const USE_MOCK_API = false;
  */
 export async function POST(request) {
   try {
+    // 详细的API配置检查和日志
+    console.log('=== 内容生成API配置检查 ===');
+    console.log('CLAUDE_API_KEY存在:', !!CLAUDE_API_KEY);
+    console.log('CLAUDE_API_KEY长度:', CLAUDE_API_KEY ? CLAUDE_API_KEY.length : 0);
+    console.log('CLAUDE_API_KEY前缀:', CLAUDE_API_KEY ? CLAUDE_API_KEY.substring(0, 20) + '...' : 'undefined');
+    console.log('CLAUDE_API_URL:', CLAUDE_API_URL);
+    console.log('API_TIMEOUT:', API_TIMEOUT);
+    
     // 检查API配置
     if (!CLAUDE_API_KEY) {
-      console.error('API密钥未配置');
+      console.error('❌ API密钥未配置');
       return NextResponse.json(
         { error: 'API服务未配置，请联系管理员' },
+        { status: 500 }
+      );
+    }
+
+    if (CLAUDE_API_KEY.includes('your-') || CLAUDE_API_KEY.length < 20) {
+      console.error('❌ API密钥无效，仍为模板值');
+      return NextResponse.json(
+        { error: 'API密钥未正确配置，请检查.env.local文件并填入真实的API密钥' },
         { status: 500 }
       );
     }
@@ -26,7 +42,7 @@ export async function POST(request) {
     // 解析请求体
     const requestData = await request.json();
     
-    console.log('接收到内容生成请求:', {
+    console.log('✅ 接收到内容生成请求:', {
       knowledge_point: requestData.knowledge_point,
       subject_domain: requestData.subject_domain,
       cognitive_level: requestData.cognitive_level
@@ -40,29 +56,42 @@ export async function POST(request) {
     
     // 尝试API调用
     try {
-      console.log('正在调用AI API...');
+      console.log('🚀 正在调用AI API...');
       const apiResponse = await callClaudeAPI(CLAUDE_API_URL, systemPrompt, userPrompt);
+      
+      console.log('✅ 内容生成成功');
       
       return NextResponse.json({ 
         success: true,
         content: apiResponse.trim()
       });
     } catch (apiError) {
-      console.error('API调用失败:', apiError.message);
+      console.error('❌ API调用失败:', apiError.message);
       
       // 不使用备用内容，直接返回错误
       return NextResponse.json(
         { 
           error: `AI服务暂时不可用：${apiError.message}。请稍后再试。`,
-          details: 'API调用失败'
+          details: 'API调用失败',
+          debug_info: {
+            api_url: CLAUDE_API_URL,
+            has_key: !!CLAUDE_API_KEY,
+            error_type: apiError.name
+          }
         },
         { status: 503 }
       );
     }
   } catch (error) {
-    console.error('内容生成API错误:', error);
+    console.error('❌ 内容生成API错误:', error);
     return NextResponse.json(
-      { error: `请求处理失败: ${error.message}` },
+      { 
+        error: `请求处理失败: ${error.message}`,
+        debug_info: {
+          timestamp: new Date().toISOString(),
+          api_configured: !!CLAUDE_API_KEY
+        }
+      },
       { status: 400 }
     );
   }
@@ -179,7 +208,7 @@ C --> D[结束]\`
 ### ✅ 自我检测
 {3-5个自评问题，从简单到复杂}
 
-### 🧪 应用挑战
+### �� 应用挑战
 {1-2个需要综合应用所学知识的任务或问题}
 
 ---

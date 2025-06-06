@@ -5,18 +5,34 @@ const API_TIMEOUT = 30000; // 30秒超时
 
 export async function POST(req) {
   try {
+    // 详细的API配置检查和日志
+    console.log('=== API配置检查 ===');
+    console.log('CLAUDE_API_KEY存在:', !!CLAUDE_API_KEY);
+    console.log('CLAUDE_API_KEY长度:', CLAUDE_API_KEY ? CLAUDE_API_KEY.length : 0);
+    console.log('CLAUDE_API_KEY前缀:', CLAUDE_API_KEY ? CLAUDE_API_KEY.substring(0, 20) + '...' : 'undefined');
+    console.log('CLAUDE_API_URL:', CLAUDE_API_URL);
+    console.log('API_TIMEOUT:', API_TIMEOUT);
+    
     // 检查API配置
     if (!CLAUDE_API_KEY) {
-      console.error('API密钥未配置');
+      console.error('❌ API密钥未配置');
       return Response.json(
         { error: 'API服务未配置，请联系管理员' },
         { status: 500 }
       );
     }
 
+    if (CLAUDE_API_KEY.includes('your-') || CLAUDE_API_KEY.length < 20) {
+      console.error('❌ API密钥无效，仍为模板值');
+      return Response.json(
+        { error: 'API密钥未正确配置，请检查.env.local文件并填入真实的API密钥' },
+        { status: 500 }
+      );
+    }
+
     // 解析请求数据
     const formData = await req.json();
-    console.log('收到试题生成请求:', {
+    console.log('✅ 收到试题生成请求:', {
       grade_level: formData.grade_level,
       subject: formData.subject,
       self_assessed_level: formData.self_assessed_level
@@ -125,48 +141,88 @@ export async function POST(req) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
 
+    console.log('🚀 开始调用API...');
+    console.log('📡 API URL:', CLAUDE_API_URL);
+    console.log('⏱️ 超时设置:', API_TIMEOUT, 'ms');
+
     try {
+      const requestBody = {
+        model: 'claude-3-sonnet-20240229',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userContent
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.7
+      };
+
+      console.log('📤 请求体大小:', JSON.stringify(requestBody).length, 'bytes');
+
       const response = await fetch(CLAUDE_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CLAUDE_API_KEY}`
+          'Authorization': `Bearer ${CLAUDE_API_KEY}`,
+          'anthropic-version': '2023-06-01'
         },
-        body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user',
-              content: userContent
-            }
-          ],
-          max_tokens: 4000,
-          temperature: 0.7
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
 
       clearTimeout(timeoutId);
+      
+      console.log('📥 API响应状态:', response.status);
+      console.log('📥 响应头:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('API 错误:', response.status, errorText);
-        throw new Error(`AI服务暂时不可用 (${response.status})`);
+        console.error('❌ API错误响应:', errorText);
+        
+        // 根据不同错误状态码提供更具体的错误信息
+        if (response.status === 401) {
+          return Response.json(
+            { error: 'API密钥无效，请检查您的API密钥是否正确配置' },
+            { status: 401 }
+          );
+        } else if (response.status === 429) {
+          return Response.json(
+            { error: 'API调用频率超限，请稍后再试' },
+            { status: 429 }
+          );
+        } else if (response.status === 403) {
+          return Response.json(
+            { error: 'API访问被拒绝，请检查API密钥权限或余额' },
+            { status: 403 }
+          );
+        } else {
+          return Response.json(
+            { error: `AI服务暂时不可用 (${response.status}): ${errorText}` },
+            { status: response.status }
+          );
+        }
       }
 
       const data = await response.json();
-      console.log('API 响应成功');
+      console.log('✅ API响应成功，数据大小:', JSON.stringify(data).length, 'bytes');
 
       // 提取生成的内容
-      const generatedContent = data.choices?.[0]?.message?.content;
+      const generatedContent = data.choices?.[0]?.message?.content || data.content?.[0]?.text;
       
       if (!generatedContent) {
-        throw new Error('AI响应格式无效');
+        console.error('❌ API响应格式无效:', Object.keys(data));
+        return Response.json(
+          { error: 'AI响应格式无效，请稍后再试' },
+          { status: 502 }
+        );
       }
+
+      console.log('✅ 内容提取成功，长度:', generatedContent.length);
 
       // 分离试题内容和答案
       const quizContentMatch = generatedContent.match(/===QUIZ_CONTENT_START===([\s\S]*?)===QUIZ_CONTENT_END===/);
@@ -174,6 +230,8 @@ export async function POST(req) {
 
       const quizContent = quizContentMatch ? quizContentMatch[1].trim() : generatedContent;
       const answersContent = answersMatch ? answersMatch[1].trim() : '';
+
+      console.log('✅ 试题生成完成');
 
       // 返回成功响应，包含分离的内容
       return Response.json({
@@ -215,10 +273,33 @@ export async function POST(req) {
     } catch (error) {
       clearTimeout(timeoutId);
       
+      console.error('❌ API调用异常:', error);
+      
       if (error.name === 'AbortError') {
+        console.error('❌ API调用超时');
         return Response.json(
-          { error: 'AI服务响应超时，请稍后重试' },
+          { 
+            error: 'AI服务响应超时，请稍后重试。可能原因：1.网络连接问题 2.API服务繁忙 3.API密钥配额不足',
+            debug_info: {
+              api_url: CLAUDE_API_URL,
+              timeout: API_TIMEOUT,
+              has_key: !!CLAUDE_API_KEY
+            }
+          },
           { status: 408 }
+        );
+      }
+      
+      if (error.message.includes('fetch')) {
+        return Response.json(
+          { 
+            error: '网络连接失败，请检查网络连接或尝试其他API服务',
+            debug_info: {
+              api_url: CLAUDE_API_URL,
+              error_type: 'network_error'
+            }
+          },
+          { status: 503 }
         );
       }
       
@@ -226,11 +307,15 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    console.error('试题生成错误:', error);
+    console.error('❌ 试题生成错误:', error);
     return Response.json(
       { 
         error: `AI服务暂时不可用：${error.message}。请稍后再试。`,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        debug_info: {
+          timestamp: new Date().toISOString(),
+          api_configured: !!CLAUDE_API_KEY
+        }
       },
       { status: 503 }
     );
