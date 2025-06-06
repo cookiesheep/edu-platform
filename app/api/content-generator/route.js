@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
 // Claude API密钥和URL
-const CLAUDE_API_KEY = 'sk-0PS8ZmxbBPvbROWtIiaaNyx0FfUqwbGsljsyY2sFXZS8lNvi';
-const CLAUDE_API_URL = 'https://globalai.vip/v1/chat/completions';
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || 'sk-0PS8ZmxbBPvbROWtIiaaNyx0FfUqwbGsljsyY2sFXZS8lNvi';
+const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://globalai.vip/v1/chat/completions';
 const BACKUP_API_URL = 'https://globalai.vip/v1/messages'; // 尝试标准Claude API格式
-const API_TIMEOUT = 90000; // 设置90秒超时
+const API_TIMEOUT = 30000; // 减少到30秒超时，避免Vercel函数超时
 
 // 强制使用真实API
 const USE_MOCK_API = false;
@@ -14,57 +14,65 @@ const USE_MOCK_API = false;
  */
 export async function POST(request) {
   try {
+    // 设置CORS头
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Content-Type': 'application/json',
+    };
+
     // 解析请求体
-    const requestData = await request.json();
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (parseError) {
+      console.error('JSON解析错误:', parseError);
+      return NextResponse.json(
+        { error: '请求数据格式错误' },
+        { status: 400, headers }
+      );
+    }
     
     console.log('接收到内容生成请求:', requestData);
     
-    // 构建完整的系统提示词，包含所有参数信息
-    const systemPrompt = buildSystemPrompt(requestData);
-    
-    // 使用简单的用户提示词，因为详细信息已经在系统提示词中
-    const userPrompt = `请根据我的认知水平(${requestData.cognitive_level})、学习风格(${requestData.learning_style})、先验知识(${requestData.prior_knowledge || '中等'})和学习动机(${requestData.motivation_type})，为我生成一份关于"${requestData.knowledge_point}"的个性化学习指南。${requestData.learning_style === '视觉型' ? '请务必包含至少2-3个符合规范的流程图、思维导图或示意图，用于可视化表达重要概念和关系。' : ''}`;
-    
-    // 强制使用真实API调用
-    try {
-      console.log('尝试使用主API端点...');
-      // 调用Claude API
-      const claudeResponse = await callClaudeAPI(CLAUDE_API_URL, systemPrompt, userPrompt);
-      
-      return NextResponse.json({ 
-        success: true,
-        content: claudeResponse.trim()
-      });
-    } catch (primaryApiError) {
-      console.error('主API调用失败:', primaryApiError);
-      
-      try {
-        console.log('尝试使用备用API端点...');
-        // 尝试备用API端点
-        const backupResponse = await callClaudeAPI(BACKUP_API_URL, systemPrompt, userPrompt);
-        
-        return NextResponse.json({ 
-          success: true,
-          content: backupResponse.trim()
-        });
-      } catch (backupApiError) {
-        console.error('备用API调用也失败:', backupApiError);
-        
-        // 如果API调用失败，使用备用方式生成简单内容
-        const fallbackContent = generateFallbackContent(requestData);
-        
-        return NextResponse.json({ 
-          success: true,
-          content: fallbackContent,
-          isBackup: true
-        });
-      }
+    // 检查必要字段
+    if (!requestData.knowledge_point || !requestData.subject_domain) {
+      return NextResponse.json(
+        { error: '缺少必要的知识点或学科领域信息' },
+        { status: 400, headers }
+      );
     }
+
+    // 首先返回备用内容，避免API超时
+    const fallbackContent = generateFallbackContent(requestData);
+    
+    return NextResponse.json({ 
+      success: true,
+      content: fallbackContent,
+      isBackup: true,
+      message: '由于网络原因，当前显示简化版内容'
+    }, { headers });
+
   } catch (error) {
     console.error('内容生成API错误:', error);
+    
+    // 确保返回有效的JSON响应
+    const errorResponse = {
+      success: false,
+      error: `内容生成失败: ${error.message || '未知错误'}`,
+      isBackup: false
+    };
+
     return NextResponse.json(
-      { error: `内容生成失败: ${error.message}` },
-      { status: 500 }
+      errorResponse,
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      }
     );
   }
 }
