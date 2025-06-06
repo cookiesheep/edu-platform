@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "app/api/quiz-grading/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/content-generator/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/assessment/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/quiz-generator/route.js": {
+      "maxDuration": 300
+    }
+  },
+  "crons": []
+} 

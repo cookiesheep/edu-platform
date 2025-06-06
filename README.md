@@ -299,3 +299,201 @@ npm start
 ---
 
 *EduPlatform - 让AI助力每一个学习者的成长之路* 🌟
+
+## 🔍 故障排除
+
+### 常见问题
+
+#### 1. API超时错误（504 Gateway Timeout）
+**问题**: 在Vercel上部署后，API调用出现504错误
+
+**解决方案**:
+- 项目已配置 `vercel.json` 文件，将API函数超时时间设置为300秒
+- 如果仍有问题，检查API密钥是否正确配置
+- 查看Vercel函数日志获取详细错误信息
+
+```json
+// vercel.json 已配置
+{
+  "functions": {
+    "app/api/*/route.js": {
+      "maxDuration": 300
+    }
+  }
+}
+```
+
+#### 2. JSON解析错误
+**问题**: "Unexpected token 'A', "An error o"... is not valid JSON"
+
+**解决方案**:
+- 这通常是由于API返回HTML错误页面而不是JSON
+- 检查API密钥配置
+- 查看网络标签页的详细错误响应
+- API已添加智能重试机制和备用结果
+
+#### 3. 选择题选项显示问题
+**问题**: 选择题四个选项只显示一个按钮
+
+**解决方案**:
+- 检查试题生成内容的格式
+- 确认选项解析逻辑正确
+- 查看浏览器控制台是否有JavaScript错误
+
+#### 4. Supabase认证问题
+**问题**: "Auth session missing!" 错误
+
+**解决方案**:
+- 检查Supabase环境变量配置
+- 确认Supabase项目设置正确
+- 查看是否需要用户登录
+
+### API配置检查
+
+#### 验证API密钥
+```bash
+# 测试API连接
+node test-api.js
+```
+
+#### 查看API日志
+- Vercel项目 → Functions → 查看日志
+- 检查API调用状态和错误信息
+
+### 性能优化
+
+#### API响应优化
+- 已优化提示词长度，减少请求体大小
+- 设置合理的max_tokens限制
+- 实施智能重试机制
+
+#### 前端优化
+- 使用Framer Motion优化动画
+- 实施懒加载
+- 优化图片和静态资源
+
+## 📊 使用指南
+
+### 试题生成
+1. 访问 `/quiz-generator`
+2. 填写学科、年级、知识点等信息
+3. 点击"生成试题"
+4. 在线答题或打印使用
+5. 提交后查看AI批改结果
+
+### 内容生成
+1. 访问 `/content-generator`
+2. 输入知识点和学习需求
+3. 选择学习风格和目标
+4. 生成个性化学习内容
+
+### 学习路径
+1. 访问 `/learning-path`
+2. 完成能力评估
+3. 获取个性化学习计划
+4. 跟踪学习进度
+
+## 🧪 测试
+
+### API测试
+```bash
+# 运行API测试脚本
+node test-api.js
+
+# 测试结果示例
+✅ 试题生成测试通过 - 响应时间: 2.1s
+✅ 内容生成测试通过 - 响应时间: 1.8s
+✅ 试题批改测试通过 - 响应时间: 2.3s
+```
+
+### 功能测试
+1. **试题生成**: 检查各种学科和难度级别
+2. **在线答题**: 验证选择题和填空题功能
+3. **智能批改**: 确认批改结果准确性
+4. **内容生成**: 测试不同学习风格的内容
+
+## 📈 开发注意事项
+
+### API使用指南
+- 所有API都已实施重试机制
+- 增加了详细的错误处理和日志
+- 支持备用结果以确保用户体验
+
+### 代码规范
+- 使用ESLint进行代码检查
+- 遵循React最佳实践
+- 组件化设计原则
+
+### 数据结构
+```javascript
+// 试题数据结构
+{
+  questions: [
+    {
+      id: 1,
+      question: "题目内容",
+      type: "multiple_choice",
+      options: [
+        { key: "A", text: "选项A" },
+        { key: "B", text: "选项B" }
+      ]
+    }
+  ]
+}
+
+// 批改结果结构
+{
+  grading_results: {
+    total_score: 85,
+    max_score: 100,
+    percentage: 85,
+    grade_level: "良好",
+    question_details: [...],
+    overall_feedback: {...}
+  }
+}
+```
+
+## 🔮 版本历史
+
+### v1.2.0 (当前版本)
+- ✅ 修复Vercel部署超时问题
+- ✅ 增强API错误处理和重试机制
+- ✅ 优化试题解析和显示逻辑
+- ✅ 添加智能备用结果系统
+- ✅ 完善故障排除指南
+
+### v1.1.0
+- ✅ 实现试题智能批改功能
+- ✅ 添加学习内容生成器
+- ✅ 完善用户界面设计
+- ✅ 集成Supabase认证系统
+
+### v1.0.0
+- ✅ 基础试题生成功能
+- ✅ AI学习助手
+- ✅ 响应式UI设计
+- ✅ 基础部署配置
+
+## 🤝 贡献指南
+
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
+
+## 📞 支持与反馈
+
+如有问题或建议，请：
+1. 查看故障排除指南
+2. 检查GitHub Issues
+3. 创建新Issue描述问题
+
+## 📄 许可证
+
+本项目采用MIT许可证。详见 [LICENSE](LICENSE) 文件。
+
+---
+
+**注意**: 请确保妥善保管API密钥，不要将其提交到版本控制系统中。在生产环境中使用环境变量管理敏感信息。
