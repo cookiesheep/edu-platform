@@ -99,7 +99,7 @@ export default function Footer() {
                         <p className="text-gray-300 mb-6 leading-relaxed">
                             基于先进AI技术，为每位学习者提供个性化学习体验。我们致力于让学习更智能、更高效、更有趣。
                         </p>
-                        
+
                         {/* 社交媒体链接 */}
                         <div className="flex space-x-4">
                             {socialLinks.map((social, index) => (

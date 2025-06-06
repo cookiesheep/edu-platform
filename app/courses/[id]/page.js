@@ -241,7 +241,7 @@ export default function CoursePage() {
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             返回课程列表
                 </Link>
-                    </div>
+            </div>
                     </div>
 
                 {/* 课程头部信息 */}
