@@ -1,138 +1,197 @@
 // app/api/questions/generate/route.js
 import { NextResponse } from 'next/server';
 import supabase from '@/lib/supabaseClient';
-import { callFastGptModel } from '@/lib/fastgptClient';
 
-const QUESTION_GENERATOR_MODEL_ID = 'jidvsej3g5cofla8xsm891kd'; // 试题生成模型
+// 从环境变量获取API配置
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
+const API_TIMEOUT = 30000;
 
 /**
  * 试题生成API处理函数
- * 接收科目、难度等参数，调用AI模型生成个性化试题
+ * 接收科目、难度等参数，调用Claude API生成个性化试题
  */
 export async function POST(request) {
     try {
+        // 检查API配置
+        if (!CLAUDE_API_KEY) {
+            return NextResponse.json(
+                { 
+                    error: 'API服务未配置', 
+                    details: '请在.env.local文件中配置CLAUDE_API_KEY'
+                },
+                { status: 500 }
+            );
+        }
+
         // 解析请求体
         const body = await request.json();
         const { userId, subject, difficulty, count, topics, excludeIds } = body;
 
         // 参数验证
-        if (!userId || !subject || !difficulty || !count) {
+        if (!subject || !difficulty || !count) {
             return NextResponse.json(
-                { error: '缺少必要参数：userId、subject、difficulty或count' },
+                { error: '缺少必要参数：subject、difficulty或count' },
                 { status: 400 }
             );
         }
 
-        // 验证用户是否登录
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session || session.user.id !== userId) {
-            return NextResponse.json(
-                { error: '未授权访问' },
-                { status: 401 }
-            );
+        // 如果提供了userId，验证用户登录状态
+        if (userId) {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session || session.user.id !== userId) {
+                return NextResponse.json(
+                    { error: '未授权访问' },
+                    { status: 401 }
+                );
+            }
         }
 
-        // 获取用户资料
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
+        // 构建系统提示词
+        const systemPrompt = `您是EduQuest，一个专业的教育试题生成系统。您的任务是根据给定的学科、难度和数量要求，生成高质量的教育测试题目。
 
-        if (profileError && profileError.code !== 'PGRST116') {
-            console.error('获取用户资料时出错:', profileError);
-            // 继续执行，但不使用用户资料
-        }
+## 生成要求
+- 学科：${subject}
+- 难度：${difficulty}
+- 题目数量：${Math.min(count, 10)} 道
+- 特定话题：${topics && topics.length > 0 ? topics.join(', ') : '无特定要求'}
 
-        // 获取用户历史作答数据，用于个性化试题
-        const { data: userAnswers, error: answersError } = await supabase
-            .from('quiz_attempts')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('courses.subject', subject)
-            .order('created_at', { ascending: false })
-            .limit(20);
+## 题目格式要求
+请严格按照以下JSON格式返回题目，不要包含任何额外文本：
 
-        if (answersError) {
-            console.error('获取用户作答历史时出错:', answersError);
-            // 继续执行，但不使用历史数据
-        }
+{
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice",
+      "subject": "${subject}",
+      "difficulty": "${difficulty}",
+      "stem": "题目描述",
+      "options": ["A. 选项1", "B. 选项2", "C. 选项3", "D. 选项4"],
+      "correct_answer": "A",
+      "explanation": "详细解析",
+      "knowledge_points": ["知识点1", "知识点2"],
+      "estimated_time": 120
+    }
+  ]
+}
 
-        // 准备发送给AI模型的数据
-        const questionData = {
-            userId,
-            subject,
-            difficulty,
-            count: Math.min(count, 20), // 限制最大题目数量
-            topics: topics || [],
-            excludeIds: excludeIds || [],
-            userHistory: userAnswers || [],
-            profile: profile || null,
-            timestamp: new Date().toISOString()
-        };
+## 题目类型分布
+- 70% 选择题 (multiple_choice)
+- 20% 填空题 (fill_blank)
+- 10% 简答题 (short_answer)
 
-        // 调用AI模型生成试题
-        const result = await callFastGptModel(QUESTION_GENERATOR_MODEL_ID, questionData);
+## 质量标准
+1. 题目表述清晰，无歧义
+2. 选择题干扰项设计合理
+3. 答案准确，解析详细
+4. 符合对应难度要求
+5. 知识点覆盖全面`;
 
-        // 处理AI返回的结果
-        let questions;
+        const userPrompt = `请为${subject}生成${Math.min(count, 10)}道${difficulty}难度的题目。${topics && topics.length > 0 ? `重点关注以下话题：${topics.join(', ')}。` : ''}请确保题目质量高，答案准确。`;
+
+        // 调用Claude API
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
 
         try {
-            // 尝试解析AI返回的内容
-            const aiResponse = result.choices[0].message.content;
+            const response = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${CLAUDE_API_KEY}`,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: 'claude-3-sonnet-20240229',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ],
+                    max_tokens: 4000,
+                    temperature: 0.7
+                }),
+                signal: controller.signal
+            });
 
-            // 检查是否为JSON格式
-            if (aiResponse.startsWith('[') || aiResponse.startsWith('{')) {
-                questions = JSON.parse(aiResponse);
+            clearTimeout(timeoutId);
 
-                // 确保返回的是数组
-                if (!Array.isArray(questions)) {
-                    if (questions.questions && Array.isArray(questions.questions)) {
-                        questions = questions.questions;
-                    } else {
-                        questions = [questions];
-                    }
-                }
-            } else {
-                // 如果返回的不是JSON，创建一个模拟题目作为返回
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Claude API错误 (${response.status}): ${errorText}`);
+            }
+
+            const data = await response.json();
+            const aiResponse = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
+
+            if (!aiResponse) {
+                throw new Error('AI响应格式无效');
+            }
+
+            // 解析AI返回的JSON
+            let questions;
+            try {
+                const parsed = JSON.parse(aiResponse);
+                questions = parsed.questions || (Array.isArray(parsed) ? parsed : [parsed]);
+            } catch (parseError) {
+                console.error('解析AI响应失败:', parseError);
+                // 创建一个简单的题目作为fallback
                 questions = [{
                     id: `gen-${Date.now()}`,
-                    type: 'text-response',
-                    stem: aiResponse,
+                    type: 'short_answer',
+                    subject: subject,
                     difficulty: difficulty,
-                    subject: subject
+                    stem: aiResponse.length > 200 ? aiResponse.substring(0, 200) + '...' : aiResponse,
+                    explanation: '由于格式解析问题，这是一个简化版题目',
+                    knowledge_points: [subject],
+                    estimated_time: 300
                 }];
             }
 
-            // 为每个问题添加唯一ID（如果没有的话）
+            // 为每个问题添加唯一ID
             questions = questions.map((q, index) => ({
                 ...q,
-                id: q.id || `gen-${Date.now()}-${index}`
+                id: q.id || `gen-${Date.now()}-${index}`,
+                generated_at: new Date().toISOString()
             }));
 
-        } catch (parseError) {
-            console.error('解析AI响应时出错:', parseError);
-
-            // 如果解析失败，返回原始文本
-            return NextResponse.json({
-                raw: result.choices[0].message.content,
-                questions: [{
-                    id: `gen-${Date.now()}`,
-                    type: 'text-response',
-                    stem: result.choices[0].message.content,
-                    difficulty: difficulty,
-                    subject: subject
-                }],
-                error: '无法解析AI响应为JSON格式'
+            return NextResponse.json({ 
+                success: true,
+                questions,
+                metadata: {
+                    total_generated: questions.length,
+                    subject,
+                    difficulty,
+                    generated_at: new Date().toISOString()
+                }
             });
+
+        } catch (apiError) {
+            clearTimeout(timeoutId);
+            
+            if (apiError.name === 'AbortError') {
+                return NextResponse.json(
+                    { error: 'AI服务响应超时，请稍后重试' },
+                    { status: 408 }
+                );
+            }
+            
+            throw apiError;
         }
 
-        // 返回生成的试题
-        return NextResponse.json({ questions });
     } catch (error) {
         console.error('试题生成API错误:', error);
         return NextResponse.json(
-            { error: '处理试题生成请求时出错: ' + error.message },
+            { 
+                error: `生成试题时出错：${error.message}`,
+                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            },
             { status: 500 }
         );
     }

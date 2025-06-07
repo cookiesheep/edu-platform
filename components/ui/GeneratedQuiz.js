@@ -44,147 +44,50 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
   const parseQuizContent = (content) => {
     if (!content) return { questions: [] };
     
-    console.log('开始解析试题内容:', content.substring(0, 200) + '...');
-    
     const lines = content.split('\n');
     const questions = [];
     
     let currentQuestion = null;
-    let inAnswerSection = false;
-    let questionCounter = 0; // 添加计数器确保唯一ID
     
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
-      // 跳过空行
-      if (!trimmedLine) return;
-      
-      // 检查是否进入答案部分，如果是则停止解析
+      // 跳过包含答案的部分
       if (trimmedLine.includes('参考答案') || 
           trimmedLine.includes('答案与解析') ||
-          trimmedLine.includes('能力评估指南') ||
-          trimmedLine.includes('===ANSWERS_START===') ||
-          trimmedLine.match(/^(选择题答案|填空题答案)[:：]/)) {
-        inAnswerSection = true;
+          trimmedLine.includes('能力评估指南')) {
         return;
       }
       
-      if (inAnswerSection) return;
-      
-      // 跳过标题行
-      if (trimmedLine.startsWith('#') || trimmedLine.includes('摸底测试')) {
-        return;
-      }
-      
-      // 解析题目 - 改进识别逻辑
-      const questionMatch = trimmedLine.match(/^(\d+)[\.\s、](.+)/);
-      if (questionMatch) {
-        // 保存之前的题目
+      // 解析题目
+      if (/^\d+\./.test(trimmedLine)) {
         if (currentQuestion) {
-          console.log('保存题目:', currentQuestion.id, '选项数量:', currentQuestion.options.length);
           questions.push(currentQuestion);
         }
         
-        questionCounter++;
-        const questionNumber = parseInt(questionMatch[1]);
-        const questionText = questionMatch[2].trim();
-        
         currentQuestion = {
-          id: `q_${questionCounter}_${questionNumber}`, // 使用复合ID确保唯一性
-          originalId: questionNumber,
-          question: questionText,
+          id: questions.length + 1,
+          question: trimmedLine,
           options: [],
           type: 'multiple_choice'
         };
-        
-        console.log('新题目:', questionCounter, questionNumber, questionText);
-      } 
-      // 解析选择题选项 - 改进选项识别
-      else if (currentQuestion && /^[ABCD][\.\s、]/.test(trimmedLine)) {
-        const optionMatch = trimmedLine.match(/^([ABCD])[\.\s、](.+)/);
-        if (optionMatch) {
-          const optionKey = optionMatch[1];
-          const optionText = optionMatch[2].trim();
-          
-          currentQuestion.options.push({
-            key: optionKey,
-            text: optionText,
-            id: `${currentQuestion.id}_option_${optionKey}` // 确保选项也有唯一ID
-          });
-          
-          console.log('添加选项:', optionKey, optionText);
-        }
-      } 
-      // 检查是否为填空题或补充题目内容
-      else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('##')) {
-        // 如果包含空白符号，判断为填空题
-        if (trimmedLine.includes('_____') || trimmedLine.includes('___') || trimmedLine.includes('______')) {
+      } else if (currentQuestion && /^[ABCD]\./.test(trimmedLine)) {
+        currentQuestion.options.push({
+          key: trimmedLine.charAt(0),
+          text: trimmedLine.substring(2).trim()
+        });
+      } else if (currentQuestion && trimmedLine && !trimmedLine.startsWith('#')) {
+        // 补充题目描述或填空题
+        if (currentQuestion.question.includes('_____') || trimmedLine.includes('_____')) {
           currentQuestion.type = 'fill_blank';
-          currentQuestion.question += ' ' + trimmedLine;
-          console.log('识别为填空题:', currentQuestion.question);
-        } 
-        // 如果是选择题但还没有选项，可能是题目的续行
-        else if (currentQuestion.type === 'multiple_choice' && currentQuestion.options.length === 0) {
-          currentQuestion.question += ' ' + trimmedLine;
-          console.log('补充题目内容:', currentQuestion.question);
         }
+        currentQuestion.question += ' ' + trimmedLine;
       }
     });
     
-    // 保存最后一题
     if (currentQuestion) {
-      console.log('保存最后一题:', currentQuestion.id, '选项数量:', currentQuestion.options.length);
       questions.push(currentQuestion);
     }
-    
-    // 处理没有明确ABCD选项的情况，尝试从题目中提取
-    questions.forEach((question, qIndex) => {
-      if (question.type === 'multiple_choice' && question.options.length === 0) {
-        console.log('尝试从题目文本中提取选项:', question.question);
-        
-        // 查找可能的选项模式
-        const optionPatterns = [
-          /[ABCD][\.\s、]([^ABCD]*?)(?=[ABCD][\.\s、]|$)/g,
-          /[①②③④][\.\s、]([^①②③④]*?)(?=[①②③④][\.\s、]|$)/g
-        ];
-        
-        for (const pattern of optionPatterns) {
-          const matches = question.question.matchAll(pattern);
-          const extractedOptions = [];
-          
-          for (const match of matches) {
-            const key = match[0].charAt(0);
-            const text = match[1].trim();
-            if (text) {
-              extractedOptions.push({ 
-                key, 
-                text,
-                id: `${question.id}_extracted_option_${key}` // 确保提取的选项也有唯一ID
-              });
-            }
-          }
-          
-          if (extractedOptions.length >= 2) {
-            question.options = extractedOptions;
-            // 清理题目文本，移除选项部分
-            question.question = question.question.replace(pattern, '').trim();
-            console.log('成功提取选项:', extractedOptions.length, '个');
-            break;
-          }
-        }
-        
-        // 如果仍然没有选项，判断为填空题
-        if (question.options.length === 0) {
-          question.type = 'fill_blank';
-          console.log('转换为填空题');
-        }
-      }
-    });
-    
-    console.log('解析完成，共', questions.length, '道题目');
-    questions.forEach((q, i) => {
-      console.log(`题目${i+1}: ${q.type}, ID: ${q.id}, 选项数: ${q.options.length}`);
-    });
     
     return { questions };
   };
@@ -334,15 +237,12 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
       }
 
       // 构建详细的答题数据
-      const currentTime = Date.now();
-      const totalDuration = behaviorData.totalStartTime ? currentTime - behaviorData.totalStartTime : 0;
-      
-      const detailedData = {
-        answers: answers,
+      const detailedAnswerData = {
+        answers,
         timing_data: answerTimingData,
         behavior_data: {
           ...behaviorData,
-          totalDuration: totalDuration,
+          totalDuration: Date.now() - behaviorData.totalStartTime,
           completionTime: new Date().toISOString()
         },
         modification_data: answerModifications,
@@ -350,110 +250,38 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
         metadata: {
           total_questions: currentQuestionCount,
           completion_rate: Object.keys(answers).length / currentQuestionCount,
-          average_time_per_question: totalDuration / Object.keys(answers).length || 0
+          average_time_per_question: Object.values(answerTimingData).reduce((a, b) => a + b, 0) / Object.keys(answerTimingData).length || 0
         }
       };
 
-      console.log('提交详细答题数据:', detailedData);
+      console.log('提交详细答题数据:', detailedAnswerData);
 
-      const requestData = {
-        answers: answers,
-        quiz_metadata: quizData?.metadata || {},
-        answers_content: answersContent,
-        detailed_data: detailedData
-      };
+      const response = await fetch('/api/quiz-grading', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          answers,
+          quiz_metadata: metadata,
+          answers_content: answersContent,
+          detailed_data: detailedAnswerData  // 新增详细数据
+        }),
+      });
 
-      // 使用重试机制调用API
-      const maxRetries = 3;
-      let lastError = null;
+      const data = await response.json();
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`开始第${attempt}次批改API调用...`);
-          
-          const response = await fetch('/api/quiz-grading', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData),
-            // 添加请求超时处理
-            signal: AbortSignal.timeout(120000) // 120秒超时
-          });
-
-          console.log('批改API响应状态:', response.status);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('批改API错误响应:', errorText);
-            
-            if (response.status === 504) {
-              // 504错误，可能需要重试
-              if (attempt < maxRetries) {
-                console.log(`504错误，等待${attempt * 2}秒后重试...`);
-                await new Promise(resolve => setTimeout(resolve, attempt * 2000));
-                continue;
-              }
-              throw new Error('服务器响应超时，请稍后重试或联系管理员');
-            } else if (response.status >= 500) {
-              // 服务器错误，可能需要重试
-              if (attempt < maxRetries) {
-                console.log(`服务器错误${response.status}，等待${attempt}秒后重试...`);
-                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-                continue;
-              }
-              throw new Error(`服务器错误 (${response.status})，请稍后重试`);
-            } else {
-              // 客户端错误，不重试
-              throw new Error(`批改失败 (${response.status}): ${errorText}`);
-            }
-          }
-
-          const data = await response.json();
-          console.log('批改响应数据:', data);
-
-          if (data.success && data.grading_results) {
-            setGradingResults(data.grading_results);
-            setEncouragement(data.encouragement);
-            setAssessment(data.assessment);
-            console.log('批改成功，显示结果');
-            return; // 成功，退出重试循环
-          } else {
-            throw new Error(data.error || '批改结果格式错误');
-          }
-
-        } catch (fetchError) {
-          console.error(`第${attempt}次批改尝试失败:`, fetchError);
-          lastError = fetchError;
-          
-          // 特定错误处理
-          if (fetchError.name === 'AbortError' || fetchError.message.includes('timeout')) {
-            if (attempt < maxRetries) {
-              console.log(`请求超时，等待${attempt * 3}秒后重试...`);
-              await new Promise(resolve => setTimeout(resolve, attempt * 3000));
-              continue;
-            }
-          } else if (fetchError.message.includes('fetch')) {
-            if (attempt < maxRetries) {
-              console.log(`网络错误，等待${attempt * 2}秒后重试...`);
-              await new Promise(resolve => setTimeout(resolve, attempt * 2000));
-              continue;
-            }
-          }
-          
-          // 其他错误或最后一次重试失败
-          if (attempt === maxRetries) {
-            break;
-          }
-        }
+      if (!response.ok) {
+        throw new Error(data.error || '批改失败');
       }
 
-      // 所有重试都失败了
-      throw lastError || new Error('批改服务暂时不可用，请稍后重试');
-
-    } catch (error) {
-      console.error('批改错误:', error);
-      setError(error.message || '批改失败，请稍后重试');
+      console.log('批改成功:', data);
+      setGradingResults(data.grading_results);
+      setEncouragement(data.encouragement);
+      setAssessment(data.assessment);
+    } catch (err) {
+      console.error('批改错误:', err);
+      setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -593,20 +421,20 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           <div className="mt-6 print:hidden">
             <h3 className="text-xl font-bold mb-4">📝 在线答题</h3>
             <div className="space-y-6">
-              {questions.map((question, questionIndex) => (
+              {questions.map((question, index) => (
                 <div 
-                  key={question.id}
+                  key={question.id} 
                   className="p-4 border rounded-lg bg-gray-50"
-                  onMouseEnter={() => recordQuestionStart(question.originalId || question.id)}
+                  onMouseEnter={() => recordQuestionStart(question.id)}
                 >
                   <div className="mb-3">
-                    <span className="text-sm text-gray-500">第{questionIndex + 1}题</span>
+                    <span className="text-sm text-gray-500">第{index + 1}题</span>
                     <p className="font-medium text-gray-900 mt-1">{question.question}</p>
-                    {answerTimingData[question.originalId || question.id] && (
+                    {answerTimingData[question.id] && (
                       <span className="text-xs text-gray-500 ml-2">
-                        答题时间: {Math.floor(answerTimingData[question.originalId || question.id] / 1000)}秒
-                        {answerModifications[question.originalId || question.id] > 1 && (
-                          <span className="ml-1">| 修改{answerModifications[question.originalId || question.id] - 1}次</span>
+                        答题时间: {Math.floor(answerTimingData[question.id] / 1000)}秒
+                        {answerModifications[question.id] > 1 && (
+                          <span className="ml-1">| 修改{answerModifications[question.id] - 1}次</span>
                         )}
                       </span>
                     )}
@@ -614,25 +442,25 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
                   
                   {question.type === 'multiple_choice' && question.options.length > 0 ? (
                     <div className="space-y-2">
-                      {question.options.map((option, optionIndex) => (
+                      {question.options.map((option) => (
                         <label
-                          key={`question-${question.id}-option-${option.key}-${optionIndex}`}
+                          key={option.key}
                           className={`flex items-center p-2 rounded cursor-pointer transition-colors ${
-                            answers[question.originalId || question.id] === option.key
+                            answers[question.id] === option.key
                               ? 'bg-blue-100 border border-blue-300'
                               : 'bg-white border border-gray-200 hover:bg-gray-50'
                           }`}
                         >
                           <input
                             type="radio"
-                            name={`quiz-question-${question.originalId || question.id}`}
+                            name={`question-${question.id}`}
                             value={option.key}
-                            checked={answers[question.originalId || question.id] === option.key}
-                            onChange={(e) => handleAnswerChange(question.originalId || question.id, e.target.value)}
-                            className="mr-3 h-4 w-4 text-blue-600"
+                            checked={answers[question.id] === option.key}
+                            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                            className="mr-3"
                             disabled={isSubmitting}
                           />
-                          <span className="text-sm">{option.key}. {option.text}</span>
+                          <span>{option.key}. {option.text}</span>
                         </label>
                       ))}
                     </div>
@@ -641,9 +469,9 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
                       <input
                         type="text"
                         placeholder="请输入答案..."
-                        value={answers[question.originalId || question.id] || ''}
-                        onChange={(e) => handleAnswerChange(question.originalId || question.id, e.target.value)}
-                        onFocus={() => recordQuestionStart(question.originalId || question.id)}
+                        value={answers[question.id] || ''}
+                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                        onFocus={() => recordQuestionStart(question.id)}
                         disabled={isSubmitting}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />

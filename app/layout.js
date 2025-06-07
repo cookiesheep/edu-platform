@@ -1,34 +1,31 @@
-import './globals.css'
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata = {
-  title: 'EduPlatform - 智能教育平台',
-  description: '基于AI技术的个性化教育学习平台',
-}
+  title: "AI学习助手 - 个性化学习体验",
+  description: "基于AI的个性化学习平台，提供智能辅导、学习路径规划和成绩分析",
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
-      <head>
-        <style>{`
-          /* 本地字体配置，避免Google Fonts访问问题 */
-          body {
-            font-family: 'Microsoft YaHei', '微软雅黑', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-          }
-          
-          /* 代码字体 */
-          code, pre {
-            font-family: 'Courier New', Consolas, Monaco, 'Lucida Console', monospace;
-          }
-          
-          /* 数学公式字体 */
-          .math {
-            font-family: 'Times New Roman', Times, serif;
-          }
-        `}</style>
-      </head>
-      <body className="min-h-screen bg-gray-50">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>
-  )
+  );
 }
