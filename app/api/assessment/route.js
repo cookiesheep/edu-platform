@@ -4,7 +4,7 @@ import supabase from '@/lib/supabaseClient';
 
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
+const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://globalai.vip/v1/chat/completions';
 const API_TIMEOUT = 30000;
 
 /**
@@ -191,8 +191,7 @@ ${grading_results.question_details?.map((q, index) =>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CLAUDE_API_KEY}`,
-                    'anthropic-version': '2023-06-01'
+                    'Authorization': `Bearer ${CLAUDE_API_KEY}`
                 },
                 body: JSON.stringify({
                     model: 'claude-3-sonnet-20240229',
@@ -206,8 +205,8 @@ ${grading_results.question_details?.map((q, index) =>
                             content: assessmentContent
                         }
                     ],
-                    max_tokens: 4000,
-                    temperature: 0.3 // 降低温度以提高分析的一致性
+                    max_tokens: 3000, // 减少token以加快响应
+                    temperature: 0.3
                 }),
                 signal: controller.signal
             });

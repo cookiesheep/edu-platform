@@ -6,8 +6,9 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js']
+    esmExternals: true
   },
+  serverExternalPackages: ['@supabase/supabase-js'],
   env: {
     CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
     CLAUDE_API_URL: process.env.CLAUDE_API_URL,

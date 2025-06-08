@@ -284,6 +284,10 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
       if (gradingData.requires_assessment && gradingData.assessment_data) {
         try {
           console.log('开始调用评估API...');
+          
+          // 显示评估加载状态
+          const originalSubmitText = '正在生成学习评估报告...';
+          
           const assessmentResponse = await fetch('/api/assessment', {
             method: 'POST',
             headers: {
@@ -295,13 +299,28 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           if (assessmentResponse.ok) {
             const assessmentData = await assessmentResponse.json();
             console.log('评估成功:', assessmentData);
-            setAssessment(assessmentData.assessment);
+            
+            // 确保正确设置评估数据
+            if (assessmentData && assessmentData.assessment) {
+              setAssessment(assessmentData.assessment);
+              console.log('学习评估报告生成成功');
+            } else {
+              console.log('评估API返回了数据，但格式可能不正确:', assessmentData);
+              // 设置一个基本的评估结果，确保功能可用
+              setAssessment(assessmentData);
+            }
           } else {
-            console.warn('评估API调用失败，但不影响批改结果');
+            const errorText = await assessmentResponse.text();
+            console.warn('评估API调用失败:', errorText);
+            console.warn('但批改结果不受影响，您仍可以查看成绩');
           }
         } catch (assessmentError) {
-          console.warn('评估调用出错，但不影响批改结果:', assessmentError.message);
+          console.warn('评估调用出错:', assessmentError.message);
+          console.warn('但批改结果不受影响，您仍可以查看成绩');
+          // 不抛出错误，确保批改结果仍可显示
         }
+      } else {
+        console.log('无需调用评估API或缺少评估数据');
       }
 
     } catch (err) {
