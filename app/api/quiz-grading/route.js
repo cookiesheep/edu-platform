@@ -77,11 +77,11 @@ ${answers_content}
 }`;
 
     // 调用Claude API进行批改
-    const response = await fetch('https://globalai.vip/v1/chat/completions', {
+    const response = await fetch(process.env.CLAUDE_API_URL || 'https://globalai.vip/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-0PS8ZmxbBPvbROWtIiaaNyx0FfUqwbGsljsyY2sFXZS8lNvi'
+        'Authorization': `Bearer ${process.env.CLAUDE_API_KEY}`
       },
       body: JSON.stringify({
         model: 'claude-3-sonnet-20240229',
@@ -95,8 +95,8 @@ ${answers_content}
             content: gradingContent
           }
         ],
-        max_tokens: 3000,
-        temperature: 0.3 // 降低温度以提高批改的一致性
+        max_tokens: 2000, // 减少token数量以加快响应
+        temperature: 0.3
       })
     });
 
