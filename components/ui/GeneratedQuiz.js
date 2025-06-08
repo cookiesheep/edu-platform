@@ -256,7 +256,8 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
 
       console.log('提交详细答题数据:', detailedAnswerData);
 
-      const response = await fetch('/api/quiz-grading', {
+      // 第一步：调用批改API
+      const gradingResponse = await fetch('/api/quiz-grading', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -265,20 +266,44 @@ const GeneratedQuiz = ({ content, quizData, onRetake, onNewQuiz }) => {
           answers,
           quiz_metadata: metadata,
           answers_content: answersContent,
-          detailed_data: detailedAnswerData  // 新增详细数据
+          detailed_data: detailedAnswerData
         }),
       });
 
-      const data = await response.json();
+      const gradingData = await gradingResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || '批改失败');
+      if (!gradingResponse.ok) {
+        throw new Error(gradingData.error || '批改失败');
       }
 
-      console.log('批改成功:', data);
-      setGradingResults(data.grading_results);
-      setEncouragement(data.encouragement);
-      setAssessment(data.assessment);
+      console.log('批改成功:', gradingData);
+      setGradingResults(gradingData.grading_results);
+      setEncouragement(gradingData.encouragement);
+
+      // 第二步：如果需要评估，单独调用评估API
+      if (gradingData.requires_assessment && gradingData.assessment_data) {
+        try {
+          console.log('开始调用评估API...');
+          const assessmentResponse = await fetch('/api/assessment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(gradingData.assessment_data),
+          });
+
+          if (assessmentResponse.ok) {
+            const assessmentData = await assessmentResponse.json();
+            console.log('评估成功:', assessmentData);
+            setAssessment(assessmentData.assessment);
+          } else {
+            console.warn('评估API调用失败，但不影响批改结果');
+          }
+        } catch (assessmentError) {
+          console.warn('评估调用出错，但不影响批改结果:', assessmentError.message);
+        }
+      }
+
     } catch (err) {
       console.error('批改错误:', err);
       setError(err.message);

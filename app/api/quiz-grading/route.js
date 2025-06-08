@@ -1,4 +1,6 @@
 export async function POST(req) {
+  const startTime = Date.now();
+  
   try {
     // 解析请求数据
     const { answers, quiz_metadata, answers_content, detailed_data } = await req.json();
@@ -184,6 +186,8 @@ ${answers_content}
 
     // 如果有详细数据，尝试调用成绩评估API
     let assessmentResult = null;
+    // 注释掉assessment调用以避免超时，改为前端单独调用
+    /*
     if (detailed_data) {
       try {
         console.log('调用成绩评估API...');
@@ -203,44 +207,46 @@ ${answers_content}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            quiz_metadata: quiz_metadata,
+            quiz_metadata,
             grading_results: gradingResult.grading_results,
-            detailed_data: detailed_data
-          }),
+            detailed_data
+          })
         });
 
         console.log('评估API响应状态:', assessmentResponse.status);
-        
+
         if (assessmentResponse.ok) {
-          const assessmentData = await assessmentResponse.json();
-          assessmentResult = assessmentData.assessment;
+          assessmentResult = await assessmentResponse.json();
           console.log('成绩评估完成，评估结果:', assessmentResult ? '有评估数据' : '无评估数据');
         } else {
           const errorText = await assessmentResponse.text();
-          console.warn('成绩评估调用失败:', assessmentResponse.status, errorText);
+          console.error('评估API调用失败:', errorText);
         }
       } catch (assessmentError) {
-        console.warn('成绩评估调用出错:', assessmentError.message);
-        console.warn('评估错误详情:', assessmentError);
-        // 不影响批改结果的返回
+        console.error('调用评估API出错:', assessmentError.message);
+        // 评估失败不影响批改结果的返回
       }
-    } else {
-      console.log('没有详细数据，跳过评估API调用');
     }
+    */
 
-    // 返回批改结果
+    // 返回批改结果（不包含评估，让前端单独调用）
     return Response.json({
       success: true,
       grading_results: gradingResult.grading_results,
       encouragement: encouragementInfo,
-      assessment: assessmentResult, // 新增评估结果
       metadata: {
         graded_at: new Date().toISOString(),
-        quiz_metadata: quiz_metadata,
-        answers_count: Object.keys(answers).length,
-        has_assessment: !!assessmentResult,
-        assessment_attempted: !!detailed_data // 是否尝试了评估
-      }
+        grading_duration: Date.now() - startTime,
+        questions_count: Object.keys(answers).length,
+        ai_model: 'Claude-3-Sonnet'
+      },
+      // 添加标志表示需要单独调用评估
+      requires_assessment: !!detailed_data,
+      assessment_data: detailed_data ? {
+        quiz_metadata,
+        grading_results: gradingResult.grading_results,
+        detailed_data
+      } : null
     });
 
   } catch (error) {
