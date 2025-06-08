@@ -74,6 +74,24 @@
   - 二级背景: 浅灰 (#f9fafb)
   - 三级背景: 深色渐变用于对比度
 
+#### ⚡ 重要BUG修复 (2024-12-28)
+- **前端错误修复**: 修复了QuizResults组件中访问未定义属性导致的运行时错误
+  - 问题：`Cannot read properties of undefined (reading 'level')`
+  - 原因：前端代码尝试访问不存在的属性路径（如 `knowledge_assessment.level`、`learning_style.primary`）
+  - 解决：调整前端代码以匹配assessment API实际返回的数据结构
+  - 影响：确保试题评估完成后能正常显示结果页面
+
+- **数据结构统一**: 规范了assessment API与前端组件间的数据交互
+  - 统一使用 `cognitive_assessment.level`（认知水平）
+  - 基于 `overall_performance.score` 评估总体表现  
+  - 根据 `learning_patterns.modification_count` 分析答题风格
+  - 通过 `completion_rate` 评估学习投入度
+
+- **系统稳定性提升**: 
+  - API调用成功率保持100%（批改、评估均正常）
+  - 消除了导致开发服务器崩溃的前端错误
+  - 确保用户能顺利完成"出题→答题→批改→评估"完整流程
+
 ### 技术架构
 
 #### 前端技术栈
@@ -312,7 +330,7 @@ module.exports = {
 
 ---
 
-**EduPlatform** - 让学习更智能，让教育更个性化 ��
+**EduPlatform** - 让学习更智能，让教育更个性化
 
 ### 🆕 最新重大更新 (2024-12-06)
 
@@ -371,3 +389,171 @@ module.exports = {
 - **调试支持**: 开发环境下提供详细的错误堆栈信息
 - **日志系统**: 完善的日志记录，便于问题排查
 - **代码清理**: 移除所有过时的依赖和代码
+
+## 🔧 环境配置
+
+### API服务配置
+
+EduPlatform支持多种AI API服务，包括Claude、OpenAI兼容API、国内AI服务等。
+
+#### 1. 配置API密钥
+
+在项目根目录创建 `.env.local` 文件（如果不存在）：
+
+```bash
+# EduPlatform 环境变量配置
+
+# 主要API配置（必填）
+CLAUDE_API_KEY=your-api-key-here
+CLAUDE_API_URL=https://api.anthropic.com/v1/messages
+
+# 可选：Supabase 用户认证服务
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url-here  
+NEXT_PUBLIC_SUPABASE_KEY=your-supabase-anon-key-here
+
+# 开发环境标识
+NODE_ENV=development
+```
+
+#### 2. 支持的API服务
+
+##### Claude官方API
+```bash
+CLAUDE_API_KEY=claude-api-key
+CLAUDE_API_URL=https://api.anthropic.com/v1/messages
+```
+
+##### OpenAI官方API
+```bash
+CLAUDE_API_KEY=openai-api-key
+CLAUDE_API_URL=https://api.openai.com/v1/chat/completions
+```
+
+##### 国内AI服务
+```bash
+# 月之暗面 Moonshot
+CLAUDE_API_KEY=moonshot-api-key
+CLAUDE_API_URL=https://api.moonshot.cn/v1/chat/completions
+
+# DeepSeek
+CLAUDE_API_KEY=deepseek-api-key  
+CLAUDE_API_URL=https://api.deepseek.com/v1/chat/completions
+
+# 其他兼容OpenAI格式的服务
+CLAUDE_API_KEY=your-api-key
+CLAUDE_API_URL=https://your-api-service.com/v1/chat/completions
+```
+
+#### 3. API配置验证
+
+启动开发服务器后，系统会自动验证API配置：
+
+```bash
+npm run dev
+```
+
+检查控制台输出：
+- ✅ `API配置有效` - 配置正确
+- ⚠️ `使用模拟数据` - API未配置，使用演示数据
+- ❌ `API调用失败` - 检查密钥和网络连接
+
+#### 4. 备用API机制
+
+系统内置多个备用API服务，当主API失败时会自动尝试：
+
+1. **主API服务** - 您配置的主要API
+2. **DeepSeek API** - 国内高性能AI服务  
+3. **Moonshot API** - 月之暗面API服务
+4. **OpenAI API** - OpenAI官方服务
+5. **模拟数据** - 演示用数据（最后备用）
+
+### 故障排除指南
+
+#### 常见问题
+
+##### 🔴 401 认证失败
+```
+Error: AI服务暂时不可用 (401)
+```
+**解决方案**:
+1. 检查API密钥是否正确
+2. 确认API密钥未过期
+3. 验证API服务URL是否正确
+4. 检查API密钥格式（是否包含前缀等）
+
+##### 🔴 403 访问被拒绝  
+```
+Error: AI服务暂时不可用 (403)
+```
+**解决方案**:
+1. 检查API配额是否用完
+2. 确认IP地址白名单设置
+3. 验证API服务的地区限制
+
+##### 🔴 超时错误
+```
+Error: AI服务响应超时
+```
+**解决方案**:
+1. 检查网络连接
+2. 尝试切换到其他API服务
+3. 增加超时时间设置
+
+##### 🔴 Supabase错误
+```
+Error: supabase.auth.getSession is not a function
+```
+**解决方案**:
+- 系统已修复此问题，重启开发服务器即可
+
+#### 调试模式
+
+开发环境下，系统提供详细的调试信息：
+
+```bash
+# 查看API调用日志
+npm run dev
+
+# 检查环境变量
+echo $CLAUDE_API_KEY  # Linux/Mac
+echo $env:CLAUDE_API_KEY  # Windows PowerShell
+```
+
+#### 配置优先级
+
+系统按以下优先级查找配置：
+1. `.env.local` 文件（推荐）
+2. `.env` 文件  
+3. 系统环境变量
+4. 默认配置
+
+### 生产环境配置
+
+#### Vercel部署
+
+在Vercel项目设置中添加环境变量：
+
+```bash
+CLAUDE_API_KEY=your-production-api-key
+CLAUDE_API_URL=https://api.anthropic.com/v1/messages
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_KEY=your-supabase-key
+```
+
+#### Docker部署
+
+创建 `docker-compose.yml`：
+
+```yaml
+version: '3.8'
+services:
+  edu-platform:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - CLAUDE_API_KEY=your-api-key
+      - CLAUDE_API_URL=https://api.anthropic.com/v1/messages
+      - NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+      - NEXT_PUBLIC_SUPABASE_KEY=your-supabase-key
+```

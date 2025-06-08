@@ -41,22 +41,28 @@ export default function ContentGeneratorPage() {
       setError(null);
       setIsBackupContent(false);
 
-      const formData = {
-        cognitive_level: cognitiveLevel,
-        prior_knowledge: priorKnowledge,
-        learning_style: learningStyle,
-        motivation_type: motivationType,
-        knowledge_point: knowledgePoint,
-        subject_domain: subjectDomain,
-        concept_type: conceptType,
-        complexity_level: complexityLevel,
-        prerequisite_concepts: prerequisiteConcepts,
-        learning_objective: learningObjective,
-        language_complexity: 3,
-        content_density: 3,
-        example_ratio: 3,
-        interactivity_level: 3,
-        cross_discipline_level: 2
+      // 按照API期望的结构组织数据
+      const requestData = {
+        learner_profile: {
+          cognitive_level: cognitiveLevel,
+          prior_knowledge: [priorKnowledge],
+          learning_style: learningStyle,
+          motivation_type: motivationType,
+          attention_span: '正常'
+        },
+        knowledge_point: {
+          topic: knowledgePoint,
+          type: conceptType,
+          complexity: complexityLevel,
+          prerequisites: prerequisiteConcepts ? prerequisiteConcepts.split(',').map(item => item.trim()) : []
+        },
+        content_parameters: {
+          language_complexity: '适中',
+          content_density: '中等',
+          interactivity: '中等',
+          example_ratio: '30%'
+        },
+        userId: null // 如果有用户登录，可以从上下文获取
       };
 
       const controller = new AbortController();
@@ -68,7 +74,7 @@ export default function ContentGeneratorPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(requestData),
           signal: controller.signal,
         });
   
@@ -80,7 +86,15 @@ export default function ContentGeneratorPage() {
         }
   
         const data = await response.json();
-        setGeneratedContent(data.content);
+        
+        // 检查返回的数据结构
+        if (data.success && data.learning_content) {
+          setGeneratedContent(data.learning_content.content);
+        } else if (data.content) {
+          setGeneratedContent(data.content);
+        } else {
+          throw new Error('返回数据格式异常');
+        }
         
         if (data.isBackup) {
           setIsBackupContent(true);

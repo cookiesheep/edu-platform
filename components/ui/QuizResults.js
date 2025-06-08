@@ -323,26 +323,24 @@ const QuizResults = ({ gradingResults, encouragement, onRetake, onNewQuiz, asses
                 </div>
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="text-lg font-bold text-green-600">
-                    {assessment.structured_data.knowledge_assessment.level === 'advanced' ? '深入' :
-                     assessment.structured_data.knowledge_assessment.level === 'intermediate' ? '中等' : '基础'}
+                    {assessment.structured_data.overall_performance.score >= 80 ? '优秀' :
+                     assessment.structured_data.overall_performance.score >= 60 ? '良好' : '需提升'}
                   </div>
-                  <div className="text-sm text-green-500">知识水平</div>
+                  <div className="text-sm text-green-500">总体表现</div>
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
                   <div className="text-lg font-bold text-purple-600">
-                    {assessment.structured_data.learning_style.primary === 'visual' ? '视觉型' :
-                     assessment.structured_data.learning_style.primary === 'application' ? '应用型' :
-                     assessment.structured_data.learning_style.primary === 'social' ? '社交型' : '文本型'}
+                    {assessment.structured_data.learning_patterns.modification_count > 5 ? '深度思考型' :
+                     assessment.structured_data.learning_patterns.modification_count > 2 ? '谨慎型' : '直觉型'}
                   </div>
-                  <div className="text-sm text-purple-500">学习风格</div>
+                  <div className="text-sm text-purple-500">答题风格</div>
                 </div>
                 <div className="p-4 bg-orange-50 rounded-lg">
                   <div className="text-lg font-bold text-orange-600">
-                    {assessment.structured_data.motivation_analysis.primary_type === 'task_oriented' ? '任务导向' :
-                     assessment.structured_data.motivation_analysis.primary_type === 'interest_driven' ? '兴趣驱动' :
-                     assessment.structured_data.motivation_analysis.primary_type === 'achievement_oriented' ? '成就导向' : '应用导向'}
+                    {assessment.structured_data.overall_performance.completion_rate >= 0.9 ? '高投入' :
+                     assessment.structured_data.overall_performance.completion_rate >= 0.7 ? '中等投入' : '需激励'}
                   </div>
-                  <div className="text-sm text-orange-500">动机类型</div>
+                  <div className="text-sm text-orange-500">学习投入</div>
                 </div>
               </div>
 

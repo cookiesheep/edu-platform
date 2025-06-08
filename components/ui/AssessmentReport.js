@@ -189,10 +189,11 @@ const AssessmentReport = ({ assessment, onClose, onDownload }) => {
                 <div 
                   key={level}
                   className={`p-4 rounded-lg text-center ${
-                    structured_data.knowledge_assessment.level === 'basic' && index === 0 ? 'bg-green-100 border-2 border-green-300' :
-                    structured_data.knowledge_assessment.level === 'intermediate' && index === 1 ? 'bg-green-100 border-2 border-green-300' :
-                    structured_data.knowledge_assessment.level === 'advanced' && index === 2 ? 'bg-green-100 border-2 border-green-300' :
-                    'bg-gray-100'
+                    // 基于overall_performance.score来判断知识水平
+                    (structured_data.overall_performance.score < 60 && index === 0) ||
+                    (structured_data.overall_performance.score >= 60 && structured_data.overall_performance.score < 80 && index === 1) ||
+                    (structured_data.overall_performance.score >= 80 && index === 2) 
+                    ? 'bg-green-100 border-2 border-green-300' : 'bg-gray-100'
                   }`}
                 >
                   <div className="font-bold">{level}</div>
@@ -227,12 +228,16 @@ const AssessmentReport = ({ assessment, onClose, onDownload }) => {
                 { type: 'text', name: '文本型', icon: '📝' },
                 { type: 'application', name: '应用型', icon: '🛠️' },
                 { type: 'social', name: '社交型', icon: '👥' }
-              ].map((style) => (
+              ].map((style, index) => (
                 <div 
                   key={style.type}
                   className={`p-4 rounded-lg text-center ${
-                    structured_data.learning_style.primary === style.type ? 
-                    'bg-purple-100 border-2 border-purple-300' : 'bg-gray-100'
+                    // 基于learning_patterns数据推断学习风格
+                    (structured_data.learning_patterns?.modification_count > 5 && style.type === 'text') ||
+                    (structured_data.learning_patterns?.modification_count <= 2 && style.type === 'visual') ||
+                    (structured_data.overall_performance?.completion_rate >= 0.9 && style.type === 'application') ||
+                    (index === 0) // 默认选择第一个作为主要风格
+                    ? 'bg-purple-100 border-2 border-purple-300' : 'bg-gray-100'
                   }`}
                 >
                   <div className="text-2xl mb-1">{style.icon}</div>
@@ -263,12 +268,16 @@ const AssessmentReport = ({ assessment, onClose, onDownload }) => {
                 { type: 'interest_driven', name: '兴趣驱动', icon: '💡' },
                 { type: 'achievement_oriented', name: '成就导向', icon: '🏆' },
                 { type: 'application_oriented', name: '应用导向', icon: '🔧' }
-              ].map((motivation) => (
+              ].map((motivation, index) => (
                 <div 
                   key={motivation.type}
                   className={`p-4 rounded-lg text-center ${
-                    structured_data.motivation_analysis.primary_type === motivation.type ? 
-                    'bg-red-100 border-2 border-red-300' : 'bg-gray-100'
+                    // 基于表现数据推断动机类型
+                    (structured_data.overall_performance?.completion_rate >= 0.9 && motivation.type === 'task_oriented') ||
+                    (structured_data.overall_performance?.score >= 80 && motivation.type === 'achievement_oriented') ||
+                    (structured_data.learning_patterns?.modification_count > 3 && motivation.type === 'interest_driven') ||
+                    (index === 0) // 默认选择第一个
+                    ? 'bg-red-100 border-2 border-red-300' : 'bg-gray-100'
                   }`}
                 >
                   <div className="text-2xl mb-1">{motivation.icon}</div>
