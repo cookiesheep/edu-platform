@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="400" viewBox="0 0 500 400" fill="none">
+    <!-- 背景 -->
+    <rect width="500" height="400" rx="20" fill="#F3F4F6" />
+
+    <!-- 大脑图标 - 表示智能学习 -->
+    <path d="M250 70C205.817 70 170 105.817 170 150C170 194.183 205.817 230 250 230C294.183 230 330 194.183 330 150C330 105.817 294.183 70 250 70Z" fill="#6366F1" fill-opacity="0.1" stroke="#6366F1" stroke-width="4"/>
+
+    <!-- 连接线 -->
+    <path d="M250 230L250 280" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M220 150L200 130" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M280 150L300 130" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M250 120L250 100" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M220 180L190 200" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M280 180L310 200" stroke="#6366F1" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- 脑部神经节点 -->
+    <circle cx="250" cy="150" r="8" fill="#6366F1"/>
+    <circle cx="220" cy="150" r="8" fill="#6366F1"/>
+    <circle cx="280" cy="150" r="8" fill="#6366F1"/>
+    <circle cx="250" cy="120" r="8" fill="#6366F1"/>
+    <circle cx="220" cy="180" r="8" fill="#6366F1"/>
+    <circle cx="280" cy="180" r="8" fill="#6366F1"/>
+    <circle cx="250" cy="180" r="8" fill="#6366F1"/>
+
+    <!-- 外部连接节点 -->
+    <circle cx="200" cy="130" r="10" fill="white" stroke="#6366F1" stroke-width="3"/>
+    <circle cx="300" cy="130" r="10" fill="white" stroke="#6366F1" stroke-width="3"/>
+    <circle cx="250" cy="100" r="10" fill="white" stroke="#6366F1" stroke-width="3"/>
+    <circle cx="190" cy="200" r="10" fill="white" stroke="#6366F1" stroke-width="3"/>
+    <circle cx="310" cy="200" r="10" fill="white" stroke="#6366F1" stroke-width="3"/>
+
+    <!-- 书本图标 - 表示学习知识 -->
+    <rect x="210" y="280" width="80" height="100" rx="5" fill="#6366F1" fill-opacity="0.2" stroke="#6366F1" stroke-width="3"/>
+    <path d="M210 290L290 290" stroke="#6366F1" stroke-width="3"/>
+    <path d="M210 310L290 310" stroke="#6366F1" stroke-width="3"/>
+    <path d="M210 330L290 330" stroke="#6366F1" stroke-width="3"/>
+    <path d="M210 350L250 350" stroke="#6366F1" stroke-width="3"/>
+
+    <!-- AI 文字图标 -->
+    <text x="160" y="85" font-family="Arial" font-weight="bold" font-size="28" fill="#6366F1">AI</text>
+    <text x="310" y="85" font-family="Arial" font-weight="bold" font-size="24" fill="#6366F1">学习</text>
+
+    <!-- 装饰元素 -->
+    <circle cx="120" cy="200" r="30" fill="#6366F1" fill-opacity="0.1"/>
+    <circle cx="380" cy="200" r="30" fill="#6366F1" fill-opacity="0.1"/>
+    <circle cx="120" cy="200" r="5" fill="#6366F1"/>
+    <circle cx="380" cy="200" r="5" fill="#6366F1"/>
+
+    <!-- 小气泡装饰 -->
+    <circle cx="150" cy="100" r="15" fill="#6366F1" fill-opacity="0.15"/>
+    <circle cx="350" cy="100" r="15" fill="#6366F1" fill-opacity="0.15"/>
+    <circle cx="400" cy="300" r="20" fill="#6366F1" fill-opacity="0.15"/>
+    <circle cx="100" cy="300" r="20" fill="#6366F1" fill-opacity="0.15"/>
+</svg>
