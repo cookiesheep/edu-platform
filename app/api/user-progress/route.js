@@ -1,4 +1,6 @@
 // app/api/user-progress/route.js
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';

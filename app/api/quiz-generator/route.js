@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 // 从环境变量获取API配置 - 支持多种API服务
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';

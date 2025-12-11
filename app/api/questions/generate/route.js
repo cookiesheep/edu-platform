@@ -1,4 +1,6 @@
 // app/api/questions/generate/route.js
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import supabase from '@/lib/supabaseClient';
 
