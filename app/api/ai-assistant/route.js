@@ -1,6 +1,6 @@
 // app/api/ai-assistant/route.js
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -124,8 +124,6 @@ export async function POST(request) {
             // 如果用户已登录，保存聊天记录
             if (userId) {
                 try {
-                    const supabase = createClient();
-                    
                     // 保存用户的问题到聊天历史
                     await supabase.from('ai_chat_history').insert({
                         user_id: userId,
