@@ -2,7 +2,10 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// 1. 删除旧的引用
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// 2. 引入新的 ssr 库
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 /**
@@ -12,7 +15,28 @@ import { cookies } from 'next/headers';
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    // 3. 使用新的初始化方式 (兼容 Next.js 15)
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // 在 GET 请求中忽略 cookie 设置错误
+            }
+          },
+        },
+      }
+    );
     
     // 验证用户是否登录
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -59,4 +83,3 @@ export async function GET(request) {
     );
   }
 }
-

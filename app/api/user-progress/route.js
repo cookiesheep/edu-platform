@@ -2,22 +2,46 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// 1. 替换旧库引用
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+
+// 辅助函数：创建 Supabase 客户端
+const createClient = (cookieStore) => {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+             // 忽略 Server Component 设置 cookie 的错误
+          }
+        },
+      },
+    }
+  );
+};
 
 /**
  * 获取用户学习进度API
- * GET /api/user-progress
  */
 export async function GET(request) {
     try {
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         const { searchParams } = new URL(request.url);
         const courseId = searchParams.get('courseId');
 
-        // 获取用户会话
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session) {
@@ -32,7 +56,6 @@ export async function GET(request) {
       `)
             .eq('user_id', session.user.id);
 
-        // 如果提供了课程ID，则筛选特定课程的进度
         if (courseId) {
             query = query.eq('course_id', courseId);
         }
@@ -44,7 +67,6 @@ export async function GET(request) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        // 格式化响应数据
         const formattedData = data.map(progress => ({
             id: progress.id,
             courseId: progress.course_id,
@@ -66,21 +88,19 @@ export async function GET(request) {
 
 /**
  * 更新用户学习进度API
- * POST /api/user-progress
  */
 export async function POST(request) {
     try {
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
-        // 验证用户是否登录
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session) {
             return NextResponse.json({ error: '未授权' }, { status: 401 });
         }
 
-        // 解析请求体
         const body = await request.json();
         const { course_id, progress_percentage, completed_chapters } = body;
 
@@ -88,7 +108,6 @@ export async function POST(request) {
             return NextResponse.json({ error: '缺少必要参数: course_id' }, { status: 400 });
         }
 
-        // 查询是否已有进度记录
         const { data: existingProgress, error: queryError } = await supabase
             .from('user_progress')
             .select('*')
@@ -104,7 +123,6 @@ export async function POST(request) {
         let result;
 
         if (existingProgress) {
-            // 更新现有进度
             result = await supabase
                 .from('user_progress')
                 .update({
@@ -114,7 +132,6 @@ export async function POST(request) {
                 })
                 .eq('id', existingProgress.id);
         } else {
-            // 创建新进度记录
             result = await supabase
                 .from('user_progress')
                 .insert({
@@ -131,7 +148,6 @@ export async function POST(request) {
             return NextResponse.json({ error: result.error.message }, { status: 500 });
         }
 
-        // 更新成功
         return NextResponse.json({
             success: true,
             message: existingProgress ? '进度已更新' : '进度已创建'

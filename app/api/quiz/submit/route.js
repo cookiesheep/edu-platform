@@ -1,42 +1,59 @@
 // app/api/quiz/submit/route.js
 export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// 1. 替换旧库引用
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+
+// 辅助函数：创建 Supabase 客户端
+const createClient = (cookieStore) => {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+             // 忽略 Server Component 设置 cookie 的错误
+          }
+        },
+      },
+    }
+  );
+};
 
 /**
  * 测验提交API处理函数
- * 接收用户答案并保存测验结果
  */
 export async function POST(request) {
     try {
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
-        // 验证用户是否登录
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session) {
             return NextResponse.json({ error: '未授权' }, { status: 401 });
         }
 
-        // 解析请求体
         const body = await request.json();
         const { courseId, chapterId, answers, totalScore = 100 } = body;
 
-        // 验证必要参数
         if (!courseId || !answers || !Array.isArray(answers)) {
-            return NextResponse.json(
-                { error: '缺少必要参数：courseId、answers或格式不正确' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: '缺少必要参数：courseId、answers或格式不正确' }, { status: 400 });
         }
 
-        // 计算得分
         const correctCount = answers.filter(a => a.isCorrect).length;
         const score = Math.round((correctCount / answers.length) * totalScore);
 
-        // 保存测验结果到数据库
         const { data, error } = await supabase
             .from('quiz_attempts')
             .insert({
@@ -53,9 +70,7 @@ export async function POST(request) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        // 更新用户进度
         if (chapterId) {
-            // 获取当前课程章节数
             const { data: chapterData, error: chapterError } = await supabase
                 .from('course_chapters')
                 .select('id')
@@ -66,7 +81,6 @@ export async function POST(request) {
             } else {
                 const totalChapters = chapterData.length;
 
-                // 获取已完成测验的章节
                 const { data: attemptedData, error: attemptedError } = await supabase
                     .from('quiz_attempts')
                     .select('chapter_id')
@@ -75,14 +89,10 @@ export async function POST(request) {
                     .is('chapter_id', 'not.null');
 
                 if (!attemptedError) {
-                    // 计算不重复的已完成章节数
                     const completedChapterIds = new Set(attemptedData.map(a => a.chapter_id));
                     const completedChapters = completedChapterIds.size;
-
-                    // 计算进度百分比
                     const progressPercentage = Math.round((completedChapters / totalChapters) * 100);
 
-                    // 更新用户进度
                     await supabase
                         .from('user_progress')
                         .upsert({
@@ -99,7 +109,6 @@ export async function POST(request) {
             }
         }
 
-        // 返回测验结果
         return NextResponse.json({
             success: true,
             score,
@@ -111,10 +120,7 @@ export async function POST(request) {
 
     } catch (error) {
         console.error('处理测验提交时出错:', error);
-        return NextResponse.json(
-            { error: '处理测验提交失败: ' + error.message },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: '处理测验提交失败: ' + error.message }, { status: 500 });
     }
 }
 
@@ -124,21 +130,19 @@ export async function POST(request) {
 export async function GET(request) {
     try {
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
-        // 获取查询参数
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         const { searchParams } = new URL(request.url);
         const courseId = searchParams.get('courseId');
         const limit = parseInt(searchParams.get('limit') || '10', 10);
 
-        // 验证用户是否登录
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session) {
             return NextResponse.json({ error: '未授权' }, { status: 401 });
         }
 
-        // 构建查询
         let query = supabase
             .from('quiz_attempts')
             .select(`
@@ -150,12 +154,10 @@ export async function GET(request) {
             .order('created_at', { ascending: false })
             .limit(limit);
 
-        // 如果指定了课程ID则过滤
         if (courseId) {
             query = query.eq('course_id', courseId);
         }
 
-        // 执行查询
         const { data, error } = await query;
 
         if (error) {
@@ -163,7 +165,6 @@ export async function GET(request) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        // 格式化响应数据
         const formattedData = data.map(attempt => ({
             id: attempt.id,
             courseId: attempt.course_id,
@@ -181,9 +182,6 @@ export async function GET(request) {
 
     } catch (error) {
         console.error('获取测验历史时出错:', error);
-        return NextResponse.json(
-            { error: '获取测验历史失败: ' + error.message },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: '获取测验历史失败: ' + error.message }, { status: 500 });
     }
 }

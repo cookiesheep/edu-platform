@@ -2,7 +2,8 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// 1. 替换旧库引用
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // 从环境变量获取API配置
@@ -10,50 +11,57 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
 const API_TIMEOUT = 30000;
 
+// 辅助函数：创建 Supabase 客户端
+const createClient = (cookieStore) => {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // 忽略 Server Component 设置 cookie 的错误
+          }
+        },
+      },
+    }
+  );
+};
+
 /**
  * 学习路径API处理函数
- * 接收用户ID、学科和目标，调用Claude API生成个性化学习路径
  */
 export async function POST(request) {
     try {
-        // 检查API配置
         if (!CLAUDE_API_KEY) {
-            return NextResponse.json(
-                { 
-                    error: 'API服务未配置', 
-                    details: '请在.env.local文件中配置CLAUDE_API_KEY'
-                },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: 'API服务未配置', details: '请在.env.local文件中配置CLAUDE_API_KEY' }, { status: 500 });
         }
 
-        // 解析请求体
         const body = await request.json();
         const { userId, subject, goal, deadline, currentLevel } = body;
 
-        // 参数验证
         if (!subject || !goal) {
-            return NextResponse.json(
-                { error: '缺少必要参数：subject或goal' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: '缺少必要参数：subject或goal' }, { status: 400 });
         }
 
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
-        // 如果提供了userId，验证用户登录状态
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         if (userId) {
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !session || session.user.id !== userId) {
-                return NextResponse.json(
-                    { error: '未授权访问' },
-                    { status: 401 }
-                );
+                return NextResponse.json({ error: '未授权访问' }, { status: 401 });
             }
         }
 
-        // 构建系统提示词
         const systemPrompt = `您是EduPath，一个专业的个性化学习路径规划系统。您的任务是根据用户的学习目标、学科背景和时间安排，制定详细的、可执行的学习计划。
 
 ## 用户信息
@@ -114,7 +122,6 @@ export async function POST(request) {
 
         const userPrompt = `请为我制定一个关于${subject}的学习路径，我的目标是${goal}。${currentLevel ? `我的当前水平是${currentLevel}。` : ''}${deadline ? `我希望在${deadline}完成学习。` : ''}请制定一个详细的、分阶段的学习计划。`;
 
-        // 调用Claude API
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
 
@@ -129,14 +136,8 @@ export async function POST(request) {
                 body: JSON.stringify({
                     model: 'claude-sonnet-4-20250514',
                     messages: [
-                        {
-                            role: 'system',
-                            content: systemPrompt
-                        },
-                        {
-                            role: 'user',
-                            content: userPrompt
-                        }
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
                     ],
                     max_tokens: 4000,
                     temperature: 0.7
@@ -158,14 +159,12 @@ export async function POST(request) {
                 throw new Error('AI响应格式无效');
             }
 
-            // 解析AI返回的JSON
             let learningPath;
             try {
                 const parsed = JSON.parse(aiResponse);
                 learningPath = parsed.learningPath || parsed;
             } catch (parseError) {
                 console.error('解析AI响应失败:', parseError);
-                // 创建一个简化版学习路径作为fallback
                 learningPath = {
                     title: `${subject} - ${goal}`,
                     subject: subject,
@@ -183,11 +182,9 @@ export async function POST(request) {
                 };
             }
 
-            // 添加生成时间戳
             learningPath.generated_at = new Date().toISOString();
             learningPath.id = `path-${Date.now()}`;
 
-            // 如果有userId，尝试保存到数据库
             if (userId) {
                 try {
                     const { error: saveError } = await supabase
@@ -204,15 +201,13 @@ export async function POST(request) {
 
                     if (saveError) {
                         console.error('保存学习路径时出错:', saveError);
-                        // 即使保存失败，仍返回学习路径
                     }
                 } catch (dbError) {
                     console.error('数据库操作失败:', dbError);
-                    // 继续返回结果，不因数据库错误而失败
                 }
             }
 
-            return NextResponse.json({ 
+            return NextResponse.json({
                 success: true,
                 learningPath,
                 metadata: {
@@ -224,24 +219,16 @@ export async function POST(request) {
 
         } catch (apiError) {
             clearTimeout(timeoutId);
-            
             if (apiError.name === 'AbortError') {
-                return NextResponse.json(
-                    { error: 'AI服务响应超时，请稍后重试' },
-                    { status: 408 }
-                );
+                return NextResponse.json({ error: 'AI服务响应超时，请稍后重试' }, { status: 408 });
             }
-            
             throw apiError;
         }
 
     } catch (error) {
         console.error('学习路径API错误:', error);
         return NextResponse.json(
-            { 
-                error: `生成学习路径时出错：${error.message}`,
-                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-            },
+            { error: `生成学习路径时出错：${error.message}`, details: process.env.NODE_ENV === 'development' ? error.stack : undefined },
             { status: 500 }
         );
     }
@@ -251,28 +238,21 @@ export async function POST(request) {
 export async function GET(request) {
     try {
         const cookieStore = await cookies();
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-        
+        // 2. 使用新方式初始化
+        const supabase = createClient(cookieStore);
+
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
 
         if (!userId) {
-            return NextResponse.json(
-                { error: '缺少必要参数：userId' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: '缺少必要参数：userId' }, { status: 400 });
         }
 
-        // 验证用户是否登录
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session || session.user.id !== userId) {
-            return NextResponse.json(
-                { error: '未授权访问' },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: '未授权访问' }, { status: 401 });
         }
 
-        // 获取用户的所有学习路径
         const { data, error } = await supabase
             .from('learning_paths')
             .select('*')
@@ -283,7 +263,7 @@ export async function GET(request) {
             throw error;
         }
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             success: true,
             paths: data || [],
             total: data?.length || 0
@@ -291,10 +271,7 @@ export async function GET(request) {
     } catch (error) {
         console.error('获取学习路径时出错:', error);
         return NextResponse.json(
-            { 
-                error: `获取学习路径失败：${error.message}`,
-                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-            },
+            { error: `获取学习路径失败：${error.message}`, details: process.env.NODE_ENV === 'development' ? error.stack : undefined },
             { status: 500 }
         );
     }
