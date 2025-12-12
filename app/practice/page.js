@@ -3,12 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import MainLayout from '@/components/layout/MainLayout';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY
-);
+import { supabase } from '@/lib/supabaseClient';
 
 // 模拟数据 - 实际应用中应该从API获取
 const MOCK_QUESTIONS = [

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient';
 import { motion } from 'framer-motion';
 import {
   BookOpen, Clock, Award, TrendingUp,
@@ -12,11 +12,6 @@ import {
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import SpotlightCard from '@/components/ui/SpotlightCard';
 import ParallaxFloating from '@/components/ui/ParallaxFloating';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY
-);
 
 export default function Dashboard() {
   const router = useRouter();
