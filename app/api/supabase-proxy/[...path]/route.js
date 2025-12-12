@@ -3,6 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const SUPABASE_URL = 'https://iemqkeofkkvmavmwytxi.supabase.co';
 
@@ -33,6 +34,17 @@ export async function PATCH(request, { params }) {
 
 async function proxyRequest(request, params, method) {
   try {
+    // 调试：打印 params 结构
+    console.log('📦 Params:', JSON.stringify(params));
+    
+    if (!params?.path) {
+      console.error('❌ params.path 不存在！');
+      return new Response(
+        JSON.stringify({ error: 'Invalid path parameter' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const path = params.path.join('/');
     const url = new URL(request.url);
     
