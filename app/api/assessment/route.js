@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // 用于 Admin 写入
 import { createServerClient } from '@supabase/ssr';   // 用于获取用户身份
 import { cookies } from 'next/headers';
+import { streamClaude } from '@/lib/claudeStream';
 
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -215,45 +216,20 @@ ${grading_results.question_details?.map((q, index) =>
 
 请生成详细的个性化评估报告，为后续学习内容生成提供依据。`;
 
-        // 调用Claude API
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
         try {
-            const response = await fetch(CLAUDE_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CLAUDE_API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: assessmentContent }
-                    ],
-                    max_tokens: 3000,
-                    temperature: 0.3
-                }),
-                signal: controller.signal
+            const assessmentReport = await streamClaude({
+                apiUrl: CLAUDE_API_URL,
+                apiKey: CLAUDE_API_KEY,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: assessmentContent }
+                ],
+                model: 'claude-sonnet-4-20250514',
+                maxTokens: 3000,
+                temperature: 0.3,
+                timeoutMs: API_TIMEOUT
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Claude API错误 (${response.status}): ${errorText}`);
-            }
-
-            const data = await response.json();
             console.log('Claude API 评估响应成功');
-
-            // 提取评估结果
-            const assessmentReport = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
-            
-            if (!assessmentReport) {
-                throw new Error('AI评估响应格式无效');
-            }
 
             // 生成结构化数据
             const structuredAssessment = {

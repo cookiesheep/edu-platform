@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { streamClaude } from '@/lib/claudeStream';
 
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -77,49 +78,19 @@ export async function POST(request) {
 
         const systemPrompt = getSystemPrompt(modelType);
 
-        // 调用Claude API
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
         try {
-            const response = await fetch(CLAUDE_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CLAUDE_API_KEY}`,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: systemPrompt
-                        },
-                        {
-                            role: 'user',
-                            content: typeof message === 'string' ? message : JSON.stringify(message)
-                        }
-                    ],
-                    max_tokens: 2000,
-                    temperature: 0.7
-                }),
-                signal: controller.signal
+            const aiResponse = await streamClaude({
+                apiUrl: CLAUDE_API_URL,
+                apiKey: CLAUDE_API_KEY,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: typeof message === 'string' ? message : JSON.stringify(message) }
+                ],
+                model: 'claude-sonnet-4-20250514',
+                maxTokens: 2000,
+                temperature: 0.7,
+                timeoutMs: API_TIMEOUT
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Claude API错误 (${response.status}): ${errorText}`);
-            }
-
-            const data = await response.json();
-            const aiResponse = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
-
-            if (!aiResponse) {
-                throw new Error('AI响应格式无效');
-            }
 
             console.log('Claude API响应成功');
 
@@ -160,16 +131,13 @@ export async function POST(request) {
                 }
             });
 
-        } catch (apiError) {
-            clearTimeout(timeoutId);
-            
-            if (apiError.name === 'AbortError') {
+        } catch (apiError) {            
+            if (apiError.name === 'AbortError' || /超时/.test(apiError.message || '')) {
                 return NextResponse.json(
                     { error: 'AI助手服务响应超时，请稍后重试' },
                     { status: 408 }
                 );
             }
-            
             throw apiError;
         }
 

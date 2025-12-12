@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // 用于写入数据库
 import { createServerClient } from '@supabase/ssr';   // 用于获取用户身份
 import { cookies } from 'next/headers';
+import { streamClaude } from '@/lib/claudeStream';
 
 export async function POST(req) {
   const startTime = Date.now();
@@ -144,31 +145,17 @@ ${answers_content}
   }
 }`;
 
-    const response = await fetch(process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.CLAUDE_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: gradingSystemPrompt },
-          { role: 'user', content: gradingContent }
-        ],
-        max_tokens: 2000,
-        temperature: 0.3
-      })
+    const gradingResultText = await streamClaude({
+      apiUrl: process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages',
+      apiKey: process.env.CLAUDE_API_KEY,
+      messages: [
+        { role: 'system', content: gradingSystemPrompt },
+        { role: 'user', content: gradingContent }
+      ],
+      maxTokens: 2000,
+      temperature: 0.3,
+      timeoutMs: 30000
     });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Claude API 批改错误:', errorData);
-      throw new Error(`Claude API 调用失败: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const gradingResultText = data.choices?.[0]?.message?.content;
     
     if (!gradingResultText) {
       throw new Error('AI批改响应格式无效');

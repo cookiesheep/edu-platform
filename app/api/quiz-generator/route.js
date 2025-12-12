@@ -1,4 +1,5 @@
 export const runtime = 'nodejs';
+import { streamClaude } from '@/lib/claudeStream';
 
 // 从环境变量获取API配置 - 支持多种API服务
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -192,49 +193,8 @@ function buildPrompts(formData) {
 
 // 调用API的通用函数
 async function callAPI(apiUrl, apiKey, systemPrompt, userContent, model, formData) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
-  let requestBody;
-  let headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${apiKey}`
-  };
-
   const isOpenAIFormat = apiUrl.includes('chat/completions');
-  
-  if (isOpenAIFormat) {
-    // OpenAI格式请求体
-    requestBody = {
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userContent
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.7
-    };
-  } else {
-    // Claude格式请求体
-    headers['anthropic-version'] = '2023-06-01';
-    requestBody = {
-      model: model,
-      messages: [
-        {
-          role: 'user',
-          content: `${systemPrompt}\n\n${userContent}`
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.7
-    };
-  }
+  const isAnthropic = apiUrl.includes('anthropic.com');
 
   console.log('🚀 开始调用API...');
   console.log('📡 API URL:', apiUrl);
@@ -242,37 +202,80 @@ async function callAPI(apiUrl, apiKey, systemPrompt, userContent, model, formDat
   console.log('📤 请求模型:', model);
 
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    console.log('📥 API响应状态:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API错误详情:', errorText);
-      throw new Error(`API调用失败 (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ API响应成功');
-
-    // 提取生成的内容 - 兼容不同API格式
     let generatedContent;
-    if (data.choices && data.choices[0]) {
-      // OpenAI格式响应
-      generatedContent = data.choices[0].message?.content;
-    } else if (data.content && data.content[0]) {
-      // Claude格式响应
-      generatedContent = data.content[0].text;
+
+    if (isAnthropic) {
+      generatedContent = await streamClaude({
+        apiUrl,
+        apiKey,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        maxTokens: 4000,
+        temperature: 0.7,
+        timeoutMs: API_TIMEOUT
+      });
     } else {
-      console.error('❌ 无法解析API响应:', data);
-      throw new Error('AI响应格式无效');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+      let requestBody;
+      let headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+
+      if (isOpenAIFormat) {
+        requestBody = {
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+          ],
+          max_tokens: 4000,
+          temperature: 0.7
+        };
+      } else {
+        headers['anthropic-version'] = '2023-06-01';
+        requestBody = {
+          model: model,
+          messages: [
+            { role: 'user', content: `${systemPrompt}\n\n${userContent}` }
+          ],
+          max_tokens: 4000,
+          temperature: 0.7
+        };
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('📥 API响应状态:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API错误详情:', errorText);
+        throw new Error(`API调用失败 (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ API响应成功');
+
+      if (data.choices && data.choices[0]) {
+        generatedContent = data.choices[0].message?.content;
+      } else if (data.content && data.content[0]) {
+        generatedContent = data.content[0].text;
+      } else {
+        console.error('❌ 无法解析API响应:', data);
+        throw new Error('AI响应格式无效');
+      }
     }
 
     if (!generatedContent) {

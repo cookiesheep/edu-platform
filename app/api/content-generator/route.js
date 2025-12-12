@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'; // 用于 Admin 写入
 import { createServerClient } from '@supabase/ssr';   // 用于获取用户身份
 import { cookies } from 'next/headers';
 import { matchLearningResources } from '@/lib/learningResources';
+import { streamClaude } from '@/lib/claudeStream';
 
 // 环境变量配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -24,24 +25,36 @@ const BACKUP_API_SERVICES = [
 async function callTextAI(systemPrompt, userPrompt, maxTokens = 6000) {
     for (const apiUrl of [TEXT_API_URL, ...BACKUP_API_SERVICES]) {
         try {
+            const isAnthropic = apiUrl.includes('anthropic.com');
+            const isOAI = apiUrl.includes('openai') || apiUrl.includes('chat/completions');
+
+            if (isAnthropic) {
+                return await streamClaude({
+                    apiUrl,
+                    apiKey: CLAUDE_API_KEY,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    maxTokens,
+                    temperature: 0.7,
+                    timeoutMs: API_TIMEOUT
+                });
+            }
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
             
-            const isOAI = apiUrl.includes('openai') || apiUrl.includes('chat/completions');
-            
-            const body = isOAI ? {
+            const body = {
                 model: 'claude-sonnet-4-20250514',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                max_tokens: maxTokens,
-                temperature: 0.7
-            } : {
-                model: 'claude-sonnet-4-20250514',
-                messages: [
-                    { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
-                ],
+                messages: isOAI
+                    ? [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ]
+                    : [
+                        { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+                    ],
                 max_tokens: maxTokens,
                 temperature: 0.7
             };

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 // 1. 替换旧库引用
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { streamClaude } from '@/lib/claudeStream';
 
 // 从环境变量获取API配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -122,42 +123,18 @@ export async function POST(request) {
 
         const userPrompt = `请为我制定一个关于${subject}的学习路径，我的目标是${goal}。${currentLevel ? `我的当前水平是${currentLevel}。` : ''}${deadline ? `我希望在${deadline}完成学习。` : ''}请制定一个详细的、分阶段的学习计划。`;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
         try {
-            const response = await fetch(CLAUDE_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CLAUDE_API_KEY}`,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt }
-                    ],
-                    max_tokens: 4000,
-                    temperature: 0.7
-                }),
-                signal: controller.signal
+            const aiResponse = await streamClaude({
+                apiUrl: CLAUDE_API_URL,
+                apiKey: CLAUDE_API_KEY,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                maxTokens: 4000,
+                temperature: 0.7,
+                timeoutMs: API_TIMEOUT
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Claude API错误 (${response.status}): ${errorText}`);
-            }
-
-            const data = await response.json();
-            const aiResponse = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
-
-            if (!aiResponse) {
-                throw new Error('AI响应格式无效');
-            }
 
             let learningPath;
             try {
