@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,11 +9,7 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader,
   UserPlus
 } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY
-);
+import { supabase } from '@/lib/supabaseClient';
 
 export default function Register() {
   const router = useRouter();
@@ -90,9 +85,10 @@ export default function Register() {
 
           <div className="glass-panel rounded-2xl shadow-2xl border border-white/10 p-8 bg-[#0f172a]/60 backdrop-blur-xl">
             {/* 状态消息 */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {error && (
                 <motion.div
+                  key="error-message"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -105,6 +101,7 @@ export default function Register() {
 
               {message && (
                 <motion.div
+                  key="success-message"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}

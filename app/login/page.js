@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,11 +9,7 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader,
   BookOpen, Brain, Target
 } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY
-);
+import { supabase } from '@/lib/supabaseClient';
 
 export default function Login() {
   const router = useRouter();
@@ -153,9 +148,10 @@ export default function Login() {
             </div>
 
             {/* 状态消息 */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {error && (
                 <motion.div
+                  key="error-message"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -168,6 +164,7 @@ export default function Login() {
 
               {message && (
                 <motion.div
+                  key="success-message"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
