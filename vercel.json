@@ -2,7 +2,13 @@
   "version": 2,
   "functions": {
     "app/api/**/*.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/supabase-proxy/:path*",
+      "destination": "/api/supabase-proxy"
+    }
+  ]
 } 
