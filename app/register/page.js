@@ -34,17 +34,23 @@ export default function Register() {
     }
 
     try {
+      console.log('🔍 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log('🔍 开始注册，邮箱:', email);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
+
+      console.log('📥 注册响应:', { data, error });
 
       if (error) throw error;
 
       setMessage('注册成功！请查看您的电子邮箱进行确认。');
       // router.push('/login');
     } catch (error) {
-      setError(error.message);
+      console.error('❌ 注册错误:', error);
+      setError(error.message || '注册失败，请重试');
     } finally {
       setLoading(false);
     }

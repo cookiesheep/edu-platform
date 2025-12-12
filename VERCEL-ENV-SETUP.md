@@ -8,7 +8,7 @@
 
 | 变量名 | 值 | 说明 |
 |--------|-----|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://eduplatform.top/supabase` | ⚠️ 注意：必须是你的域名 + /supabase |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://eduplatform.top/api/supabase-proxy` | ⚠️ 注意：必须是你的域名 + /api/supabase-proxy |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbXFrZW9ma2t2bWF2bXd5dHhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyNjc4NzUsImV4cCI6MjA4MDg0Mzg3NX0.Ehm_HT1b6y_IohDkDtLYopHKCFGC5ekLNLM5W2eJkRE` | Supabase 公钥 |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbXFrZW9ma2t2bWF2bXd5dHhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI2Nzg3NSwiZXhwIjoyMDgwODQzODc1fQ.CXtjsbQwFsLP_2N-M7ds4afsD1Z_MnWYGPdm-7CY5LI` | 服务端密钥（仅后端使用） |
 | `SUPABASE_URL` | `https://iemqkeofkkvmavmwytxi.supabase.co` | 后端直连地址 |
