@@ -83,48 +83,64 @@ export default function ContentGeneratorPage() {
       userId: currentUserId // ✅ 这里现在发送的是真实的 User ID
     };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-    fetch('/api/content-generator', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-      signal: controller.signal,
-    })
-    .then(response => {
-        clearTimeout(timeoutId);
-        if (!response.ok) {
-          return response.json().then(errorData => {
-            setError(errorData.error || '内容生成失败');
-            setIsGenerating(false);
-          });
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (!data) return;
-        if (data.success && data.learning_content) {
-          setGeneratedContent(data.learning_content.content);
-          // 移除了 setKnowledgeImage
-          setLearningResources(data.learning_content.learning_resources || []);
-        } else if (data.content) {
-          setGeneratedContent(data.content);
-        } else {
-          setError('返回数据格式异常');
-        }
-        if (data.isBackup) {
-          setIsBackupContent(true);
-        }
-        setIsGenerating(false);
-      })
-      .catch(err => {
-        clearTimeout(timeoutId);
-        setError(err.name === 'AbortError' ? '请求超时，请检查网络连接后重试' : err.message || '生成内容时发生错误');
-        setIsGenerating(false);
+    // 使用流式响应（SSE）- 避免超时
+    try {
+      const response = await fetch('/api/content-generator', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6);
+            try {
+              const data = JSON.parse(jsonStr);
+              
+              // 根据状态更新 UI
+              if (data.status === 'init' || data.status === 'preparing' || 
+                  data.status === 'generating' || data.status === 'matching' || 
+                  data.status === 'saving') {
+                console.log('📡', data.message);
+              } else if (data.status === 'complete' && data.success && data.learning_content) {
+                setGeneratedContent(data.learning_content.content);
+                setLearningResources(data.learning_content.learning_resources || []);
+                setIsGenerating(false);
+              } else if (data.status === 'error' || data.error) {
+                setError(data.error || '内容生成失败');
+                setIsGenerating(false);
+              }
+            } catch (e) {
+              console.warn('解析 SSE 数据失败:', e);
+            }
+          }
+        }
+      }
+      
+      setIsGenerating(false);
+    } catch (err) {
+      console.error('内容生成失败:', err);
+      setError(err.message || '生成内容时发生错误');
+      setIsGenerating(false);
+    }
   };
 
   // 从sessionStorage读取评估结果参数并自动生成
