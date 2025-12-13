@@ -83,7 +83,6 @@ export default function ContentGeneratorPage() {
       userId: currentUserId // ✅ 这里现在发送的是真实的 User ID
     };
 
-    // 使用流式响应（SSE）- 避免超时
     try {
       const response = await fetch('/api/content-generator', {
         method: 'POST',
@@ -115,18 +114,14 @@ export default function ContentGeneratorPage() {
             try {
               const data = JSON.parse(jsonStr);
               
-              // 根据状态更新 UI
-              if (data.status === 'init' || data.status === 'preparing' || 
-                  data.status === 'generating' || data.status === 'matching' || 
-                  data.status === 'saving') {
+              if (data.status === 'init' || data.status === 'generating' || 
+                  data.status === 'matching' || data.status === 'saving') {
                 console.log('📡', data.message);
               } else if (data.status === 'complete' && data.success && data.learning_content) {
                 setGeneratedContent(data.learning_content.content);
                 setLearningResources(data.learning_content.learning_resources || []);
-                setIsGenerating(false);
               } else if (data.status === 'error' || data.error) {
                 setError(data.error || '内容生成失败');
-                setIsGenerating(false);
               }
             } catch (e) {
               console.warn('解析 SSE 数据失败:', e);
@@ -134,11 +129,10 @@ export default function ContentGeneratorPage() {
           }
         }
       }
-      
-      setIsGenerating(false);
     } catch (err) {
       console.error('内容生成失败:', err);
       setError(err.message || '生成内容时发生错误');
+    } finally {
       setIsGenerating(false);
     }
   };

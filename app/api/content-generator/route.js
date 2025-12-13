@@ -1,158 +1,78 @@
-// 流式响应版本 - 避免 Vercel 超时
-export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const runtime = 'edge'; // ✅ 启用 Edge Runtime 以支持长连接
 
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { matchLearningResources } from '@/lib/learningResources';
-import { streamClaude } from '@/lib/claudeStream';
+import { streamClaudeGenerator } from '@/lib/claudeStream';
 
+// 环境变量配置
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const TEXT_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
-const API_TIMEOUT = 120000;
 
-/**
- * 调用 AI 生成内容（保持原有逻辑）
- */
-async function callTextAI(systemPrompt, userPrompt, maxTokens = 6000) {
-    const isAnthropic = TEXT_API_URL.includes('anthropic.com');
-    const isOAI = TEXT_API_URL.includes('openai') || TEXT_API_URL.includes('chat/completions');
+// 备用服务列表
+const BACKUP_API_SERVICES = [
+    'https://api.deepseek.com/v1/chat/completions',
+    'https://api.moonshot.cn/v1/chat/completions',
+    'https://api.openai.com/v1/chat/completions'
+];
 
-    if (isAnthropic || TEXT_API_URL.includes('chat/completions')) {
-        // 使用 streamClaude（已经支持两种格式）
-        return await streamClaude({
-            apiUrl: TEXT_API_URL,
-            apiKey: CLAUDE_API_KEY,
-            system: systemPrompt,
-            messages: [
-                { role: 'user', content: userPrompt }
-            ],
-            maxTokens,
-            temperature: 0.7,
-            timeoutMs: API_TIMEOUT
-        });
-    }
+export async function POST(req) {
+  const encoder = new TextEncoder();
+  
+  // 创建流式响应
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
 
-    // 备用逻辑
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-    
-    const body = {
-        model: 'claude-sonnet-4-20250514',
-        messages: isOAI
-            ? [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ]
-            : [
-                { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
-            ],
-        max_tokens: maxTokens,
-        temperature: 0.7
-    };
+      try {
+        // 1. 解析请求体
+        const body = await req.json();
+        const { learner_profile, knowledge_point, content_parameters, userId: frontendUserId } = body;
 
-    const res = await fetch(TEXT_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(isOAI 
-                ? { 'Authorization': `Bearer ${CLAUDE_API_KEY}` }
-                : { 'x-api-key': CLAUDE_API_KEY, 'anthropic-version': '2023-06-01' }
-            )
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
+        if (!learner_profile || !knowledge_point) {
+          send({ status: 'error', error: 'Missing parameters' });
+          controller.close();
+          return;
+        }
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    
-    const data = await res.json();
-    return isOAI ? (data.choices?.[0]?.message?.content || '') : (data.content?.[0]?.text || '');
-}
+        // 2. 获取用户 ID (尝试从 Cookie 获取，失败则用前端传来的)
+        let sessionUserId = null;
+        try {
+          const cookieStore = await cookies();
+          // 注意：在 Edge Runtime 中使用 createServerClient 需要适配
+          // 这里简化处理，仅用于获取 ID，不做复杂操作
+          const authClient = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            {
+              cookies: {
+                getAll() { return cookieStore.getAll() },
+                setAll() {} 
+              }
+            }
+          );
+          const { data: { user } } = await authClient.auth.getUser();
+          sessionUserId = user?.id;
+        } catch (e) {
+          console.warn('[ContentGen] 获取 Session 失败:', e);
+        }
+        const finalUserId = sessionUserId || frontendUserId;
 
-/**
- * 流式响应 POST 处理器
- */
-export async function POST(request) {
-    const encoder = new TextEncoder();
-    
-    const stream = new ReadableStream({
-        async start(controller) {
-            const sendData = (data) => {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-            };
+        // 3. 构建 Prompt
+        const complexity = knowledge_point.complexity || 3;
+        const isElementary = complexity <= 2;
+        const isAdvanced = complexity >= 4;
+        
+        const languageStyle = isElementary 
+            ? '使用生动形象的语言，多用比喻和故事，避免专业术语，适合小学生理解'
+            : isAdvanced
+            ? '使用专业术语和严谨的表达，适合大学生和专业人士'
+            : '使用通俗易懂但准确的语言，适合中学生理解';
 
-            try {
-                if (!CLAUDE_API_KEY) {
-                    sendData({ error: 'API Key Missing' });
-                    controller.close();
-                    return;
-                }
-
-                sendData({ status: 'init', message: '正在初始化...' });
-
-                // 1. 获取用户身份
-                let sessionUserId = null;
-                try {
-                    const cookieStore = await cookies();
-                    const authClient = createServerClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL,
-                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-                        {
-                            cookies: {
-                                getAll() { return cookieStore.getAll(); },
-                                setAll() {}
-                            }
-                        }
-                    );
-                    const { data: { user } } = await authClient.auth.getUser();
-                    sessionUserId = user?.id || null;
-                } catch (e) {
-                    console.warn('[ContentGen] 获取用户失败:', e.message);
-                }
-
-                // 2. 初始化 Admin 客户端
-                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-                const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-                
-                if (!supabaseUrl || !serviceRoleKey) {
-                    sendData({ error: '缺少 Supabase 配置' });
-                    controller.close();
-                    return;
-                }
-
-                const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-                    auth: { autoRefreshToken: false, persistSession: false }
-                });
-
-                // 3. 解析请求
-                const body = await request.json();
-                const { learner_profile, knowledge_point, content_parameters, userId: frontendUserId } = body;
-                const finalUserId = sessionUserId || frontendUserId;
-
-                if (!learner_profile || !knowledge_point) {
-                    sendData({ error: 'Missing parameters' });
-                    controller.close();
-                    return;
-                }
-
-                sendData({ status: 'preparing', message: '正在准备生成内容...' });
-
-                // 4. 构建 Prompt
-                const complexity = knowledge_point.complexity || 3;
-                const isElementary = complexity <= 2;
-                const isAdvanced = complexity >= 4;
-                
-                const languageStyle = isElementary 
-                    ? '使用生动形象的语言，多用比喻和故事，避免专业术语，适合小学生理解'
-                    : isAdvanced
-                    ? '使用专业术语和严谨的表达，适合大学生和专业人士'
-                    : '使用通俗易懂但准确的语言，适合中学生理解';
-
-                const systemPrompt = `您是EduSage，一个专业的自适应教育内容生成系统。
+        const systemPrompt = `您是EduSage，一个专业的自适应教育内容生成系统。
 
 ## 学习者画像
 - 认知水平：${learner_profile.cognitive_level || '中等'}
@@ -165,7 +85,7 @@ export async function POST(request) {
 **严格排版规则：**
 1. **禁止使用 Markdown 的 # (标题) 和 * (加粗/列表) 符号**。
 2. 使用**空行**来分隔不同的段落。
-3. 使用**中文序号**（如"一、"、"1."）来表示章节层级。
+3. 使用**中文序号**（如“一、”、“1.”）来表示章节层级。
 4. 重点概念可以用【】包裹。
 5. 代码示例请使用 \`\`\`语言 ... \`\`\` 包裹。
 
@@ -181,82 +101,118 @@ export async function POST(request) {
 
 **语言风格：** ${languageStyle}`;
 
-                const userPrompt = `请为"${knowledge_point.topic}"生成详细的学习内容。`;
+        const userPrompt = `请为"${knowledge_point.topic}"生成详细的学习内容。`;
 
-                // 5. 生成内容
-                sendData({ status: 'generating', message: '正在调用 AI 生成内容，请稍候...' });
-                const generatedContent = await callTextAI(systemPrompt, userPrompt);
+        send({ status: 'init', message: '正在初始化生成环境...' });
 
-                // 6. 匹配资源
-                sendData({ status: 'matching', message: '正在匹配学习资源...' });
-                const matchedResources = matchLearningResources(knowledge_point.topic, learner_profile.cognitive_level);
+        // 4. 调用 AI 生成 (带重试机制)
+        let fullContent = '';
+        let success = false;
+        const apiUrls = [TEXT_API_URL, ...BACKUP_API_SERVICES];
 
-                // 7. 构建结构化内容
-                const MAX_CONTENT_CHARS = 40000;
-                const storedContent = generatedContent?.slice(0, MAX_CONTENT_CHARS) || '';
+        for (const apiUrl of apiUrls) {
+          try {
+            send({ status: 'generating', message: '正在生成学习内容...' });
+            
+            const generator = streamClaudeGenerator({
+              apiUrl,
+              apiKey: CLAUDE_API_KEY,
+              system: systemPrompt,
+              messages: [{ role: 'user', content: userPrompt }],
+              maxTokens: 6000,
+              temperature: 0.7,
+              timeoutMs: 120000 // 2分钟超时
+            });
 
-                const structuredContent = {
-                    topic: knowledge_point.topic,
-                    content: generatedContent,
-                    knowledge_image: null,
-                    learning_resources: matchedResources,
-                    learner_adaptations: { ...learner_profile },
-                    content_metadata: { 
-                        language_complexity: content_parameters?.language_complexity,
-                        estimated_reading_time: Math.ceil(generatedContent.length / 300) 
-                    }
-                };
-
-                // 8. 保存到数据库
-                if (finalUserId) {
-                    sendData({ status: 'saving', message: '正在保存到数据库...' });
-                    
-                    const { error: dbError } = await supabaseAdmin
-                        .from('learning_materials')
-                        .insert([{
-                            user_id: finalUserId,
-                            topic: knowledge_point.topic,
-                            content: storedContent,
-                            params: {
-                                learner_profile,
-                                content_parameters,
-                                complexity
-                            }
-                        }]);
-
-                    if (dbError) {
-                        console.error('[ContentGen] 保存失败:', dbError);
-                        sendData({ status: 'warning', message: '内容生成成功，但保存失败' });
-                    } else {
-                        console.log('[ContentGen] ✅ 学习内容已成功保存到数据库');
-                    }
-                }
-
-                // 9. 发送最终结果
-                sendData({ 
-                    status: 'complete',
-                    success: true, 
-                    learning_content: structuredContent 
-                });
-                
-                controller.close();
-
-            } catch (error) {
-                console.error('[ContentGen] 错误:', error);
-                sendData({
-                    status: 'error',
-                    error: error.message || '内容生成失败'
-                });
-                controller.close();
+            for await (const chunk of generator) {
+              fullContent += chunk;
+              // 可选：发送增量更新，如果前端需要打字机效果
+              // send({ status: 'generating', delta: chunk }); 
             }
-        }
-    });
 
-    return new Response(stream, {
-        headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-        },
-    });
+            if (fullContent.length > 100) {
+              success = true;
+              break; // 成功
+            }
+          } catch (e) {
+            console.warn(`API ${apiUrl} failed:`, e);
+            continue; // 尝试下一个
+          }
+        }
+
+        if (!success) {
+          send({ status: 'error', error: '所有线路均繁忙，请稍后再试' });
+          controller.close();
+          return;
+        }
+
+        // 5. 后处理与保存
+        send({ status: 'matching', message: '正在匹配学习资源...' });
+        
+        // 尝试提取 JSON (虽然 Prompt 要求纯文本，但为了兼容性保留逻辑)
+        let structuredContent = { content: fullContent };
+        try {
+            const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.content) structuredContent = parsed;
+            }
+        } catch (e) {}
+
+        // 匹配资源
+        const matchedResources = matchLearningResources(knowledge_point.topic, learner_profile.cognitive_level);
+        structuredContent.learning_resources = matchedResources;
+        structuredContent.learner_adaptations = { ...learner_profile };
+
+        // 6. 保存到数据库
+        if (finalUserId) {
+          send({ status: 'saving', message: '正在保存到数据库...' });
+          try {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            
+            if (supabaseUrl && serviceRoleKey) {
+              const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+                auth: { autoRefreshToken: false, persistSession: false }
+              });
+
+              const MAX_CONTENT_CHARS = 40000;
+              const storedContent = fullContent.slice(0, MAX_CONTENT_CHARS);
+
+              await supabaseAdmin.from('learning_materials').insert({
+                user_id: finalUserId,
+                topic: knowledge_point.topic,
+                content: storedContent,
+                params: {
+                  learner_profile,
+                  content_parameters,
+                  complexity
+                }
+              });
+              console.log('[ContentGen] Saved to DB');
+            }
+          } catch (dbError) {
+            console.error('[ContentGen] DB Save Error:', dbError);
+            // 数据库错误不影响返回结果
+          }
+        }
+
+        send({ status: 'complete', success: true, learning_content: structuredContent });
+        controller.close();
+
+      } catch (err) {
+        console.error('Stream Error:', err);
+        send({ status: 'error', error: err.message || 'Internal Server Error' });
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
