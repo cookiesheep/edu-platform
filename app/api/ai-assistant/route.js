@@ -82,8 +82,8 @@ export async function POST(request) {
             const aiResponse = await streamClaude({
                 apiUrl: CLAUDE_API_URL,
                 apiKey: CLAUDE_API_KEY,
+                system: systemPrompt,
                 messages: [
-                    { role: 'system', content: systemPrompt },
                     { role: 'user', content: typeof message === 'string' ? message : JSON.stringify(message) }
                 ],
                 model: 'claude-sonnet-4-20250514',

@@ -220,8 +220,8 @@ ${grading_results.question_details?.map((q, index) =>
             const assessmentReport = await streamClaude({
                 apiUrl: CLAUDE_API_URL,
                 apiKey: CLAUDE_API_KEY,
+                system: systemPrompt,
                 messages: [
-                    { role: 'system', content: systemPrompt },
                     { role: 'user', content: assessmentContent }
                 ],
                 model: 'claude-sonnet-4-20250514',

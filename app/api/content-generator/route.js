@@ -32,8 +32,8 @@ async function callTextAI(systemPrompt, userPrompt, maxTokens = 6000) {
                 return await streamClaude({
                     apiUrl,
                     apiKey: CLAUDE_API_KEY,
+                    system: systemPrompt,
                     messages: [
-                        { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt }
                     ],
                     maxTokens,

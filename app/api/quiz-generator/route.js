@@ -208,8 +208,8 @@ async function callAPI(apiUrl, apiKey, systemPrompt, userContent, model, formDat
       generatedContent = await streamClaude({
         apiUrl,
         apiKey,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
         ],
         maxTokens: 4000,

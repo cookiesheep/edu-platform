@@ -148,8 +148,8 @@ ${answers_content}
     const gradingResultText = await streamClaude({
       apiUrl: process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages',
       apiKey: process.env.CLAUDE_API_KEY,
+      system: gradingSystemPrompt,
       messages: [
-        { role: 'system', content: gradingSystemPrompt },
         { role: 'user', content: gradingContent }
       ],
       maxTokens: 2000,
