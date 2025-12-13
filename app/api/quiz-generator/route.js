@@ -222,9 +222,15 @@ async function callAPI(apiUrl, apiKey, systemPrompt, userContent, model, formDat
 
       let requestBody;
       let headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Content-Type': 'application/json'
       };
+      
+      // Claude API 使用 x-api-key，OpenAI 格式使用 Authorization
+      if (isOpenAIFormat) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['x-api-key'] = apiKey;
+      }
 
       if (isOpenAIFormat) {
         requestBody = {
